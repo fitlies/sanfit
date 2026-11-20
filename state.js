@@ -1,6 +1,7 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { initial, fitSize } from "./lib.js";
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const $ = (s) => document.querySelector(s);
@@ -41,6 +42,44 @@ export function alertBox(error) {
   s.textContent = `Didn't go through: ${error.message}. Check your connection and try again.`;
   clearTimeout(s.t);
   s.t = setTimeout(() => (s.hidden = true), 6000);
+}
+
+// Signed links to private pictures (chat photos, profile photos), cached for the session.
+// shortcut: links last 24h; reopen the app if a picture stops loading after a day open.
+const urls = {};
+export async function fileUrl(bucket, path) {
+  const key = `${bucket}/${path}`;
+  if (!urls[key]) {
+    const { data } = await sb.storage.from(bucket).createSignedUrl(path, 86400);
+    urls[key] = data?.signedUrl;
+  }
+  return urls[key];
+}
+
+// Fills an avatar circle with someone's profile photo, or their initial while it loads or if they have none.
+export function fillAvatar(box, name, path) {
+  box.textContent = initial(name);
+  box.dataset.path = path ?? "";
+  if (path) fileUrl("avatars", path).then((u) => {
+    if (!u || box.dataset.path !== path) return; // the circle moved on to someone else meanwhile
+    const img = el("img");
+    img.alt = "";
+    img.src = u;
+    box.replaceChildren(img);
+  });
+}
+
+// Shrinks a picked photo to a JPEG at most `max` px on its longest side. Falls back to the original.
+export async function shrink(file, max) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const [w, h] = fitSize(bmp.width, bmp.height, max);
+    const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
+    c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    return await new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no()), "image/jpeg", 0.82));
+  } catch {
+    return file;
+  }
 }
 
 // Runs a Supabase write; shows the error if it fails. Returns true when it worked.

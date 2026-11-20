@@ -1,13 +1,13 @@
 // Chats tab: the chat list, one open chat, replies, reactions, sending text and photos.
-import { dayLabel, timeLabel, initial, fitSize } from "./lib.js";
-import { S, sb, $, el, TICK, changed, save, alertBox, chatName, nameOf, snippet, unreadIn, personByEmail, otherEmail, loadReactions } from "./state.js";
+import { dayLabel, timeLabel } from "./lib.js";
+import { S, sb, $, el, TICK, changed, save, alertBox, fileUrl, fillAvatar, shrink, chatName, nameOf, snippet, unreadIn, personByEmail, otherEmail, loadReactions } from "./state.js";
 
 const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 6l3 3 6-7M7 8l1 1 6-7"/></svg>';
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
-const urls = {};
 let replyTo = null, stick = true;
 
-const joined = (c) => !!personByEmail(otherEmail(c));
+const other = (c) => personByEmail(otherEmail(c)); // undefined until they join
+const joined = (c) => !!other(c);
 const shortWhen = (d) => (dayLabel(d) === "Today" ? timeLabel(d) : dayLabel(d));
 
 // ---------- chat list ----------
@@ -25,7 +25,9 @@ export function renderChatList() {
       el("span", "preview", m ? (m.sender === S.me ? "You: " : "") + snippet(m) : joined(c) ? "Say hi." : "Hasn't joined Sanfit yet"),
     );
     if (unread) body.append(el("span", "count", unread));
-    row.append(el("div", "avatar", initial(chatName(c))), body);
+    const av = el("div", "avatar");
+    fillAvatar(av, chatName(c), other(c)?.avatar_path);
+    row.append(av, body);
     return row;
   }) : [el("p", "none", "No chats yet.")]));
 }
@@ -51,7 +53,7 @@ visualViewport?.addEventListener("resize", fit); // keep the composer above the 
 export function renderChat() {
   const c = S.chats.find((x) => x.id === S.chatId);
   if (!c) return;
-  $("#partner-initial").textContent = initial(chatName(c));
+  fillAvatar($("#partner-avatar"), chatName(c), other(c)?.avatar_path);
   $("#partner-name").textContent = chatName(c);
   $("#partner-sub").textContent = joined(c) ? "" : "They'll see your messages once they join.";
 
@@ -87,7 +89,7 @@ function bubble(m, first) {
     img.alt = "Photo";
     img.onload = () => stick && scrollBottom();
     img.onclick = () => { $("#viewer img").src = img.src; $("#viewer").hidden = false; };
-    photoUrl(m.image_path).then((u) => u && (img.src = u));
+    fileUrl("photos", m.image_path).then((u) => u && (img.src = u));
     b.append(img);
   }
   if (m.body) b.append(el("span", "text", m.body));
@@ -115,14 +117,6 @@ function jumpTo(id) {
   setTimeout(() => b.classList.remove("flash"), 1000);
 }
 
-async function photoUrl(path) {
-  if (!urls[path]) {
-    // shortcut: links last 24h; reopen the app if a photo stops loading after a day open.
-    const { data } = await sb.storage.from("photos").createSignedUrl(path, 86400);
-    urls[path] = data?.signedUrl;
-  }
-  return urls[path];
-}
 $("#viewer").onclick = () => ($("#viewer").hidden = true);
 
 export function addMsg(m) {
@@ -256,7 +250,7 @@ $("#file").onchange = async (e) => {
   for (const [i, f] of files.entries()) {
     s.hidden = false;
     s.textContent = files.length > 1 ? `Sending photo ${i + 1} of ${files.length}…` : "Sending photo…";
-    const blob = await shrink(f);
+    const blob = await shrink(f, 1600); // keeps photos quick to load and the free storage lasting
     const path = `${cid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
     if (!(await save(sb.storage.from("photos").upload(path, blob, { contentType: blob.type || "image/jpeg" })))) continue;
     const { data, error } = await sb.from("messages").insert({ chat_id: cid, image_path: path, reply_to: reply }).select().single();
@@ -267,15 +261,3 @@ $("#file").onchange = async (e) => {
   s.hidden = true;
 };
 
-// Resize to 1600px JPEG so photos load fast and the free storage lasts. Falls back to the original.
-async function shrink(file) {
-  try {
-    const bmp = await createImageBitmap(file);
-    const [w, h] = fitSize(bmp.width, bmp.height, 1600);
-    const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
-    c.getContext("2d").drawImage(bmp, 0, 0, w, h);
-    return await new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no()), "image/jpeg", 0.82));
-  } catch {
-    return file;
-  }
-}

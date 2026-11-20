@@ -1,8 +1,34 @@
-// Settings tab: name, appearance, notifications, sign out. Drawn when you open the tab, not on every update.
+// Settings tab: profile photo, name, appearance, notifications, sign out. Drawn when you open the tab, not on every update.
 import { b64urlToBytes } from "./lib.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { S, sb, $, save, alertBox, loadPeople } from "./state.js";
+import { S, sb, $, save, alertBox, loadPeople, fillAvatar, shrink } from "./state.js";
 
+// ---------- profile photo ----------
+function drawPhoto() {
+  const me = S.people[S.me];
+  fillAvatar($("#my-avatar"), me?.name, me?.avatar_path);
+  $("#photo-remove").hidden = !me?.avatar_path;
+}
+$("#photo-change").onclick = () => $("#photo-file").click();
+$("#photo-file").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) setPhoto(await shrink(file, 400));
+};
+$("#photo-remove").onclick = () => setPhoto(null);
+
+// Saves the new photo (or none), then deletes the old file.
+async function setPhoto(blob) {
+  const old = S.people[S.me]?.avatar_path;
+  const path = blob ? `${S.me}/${Date.now()}.jpg` : null;
+  if (blob && !(await save(sb.storage.from("avatars").upload(path, blob, { contentType: blob.type || "image/jpeg" })))) return;
+  if (!(await save(sb.from("profiles").update({ avatar_path: path }).eq("id", S.me)))) return;
+  if (old) sb.storage.from("avatars").remove([old]);
+  await loadPeople();
+  drawPhoto();
+}
+
+// ---------- name, appearance, alerts ----------
 $("#rename-form").onsubmit = async (e) => {
   e.preventDefault();
   if (await save(sb.from("profiles").update({ name: $("#my-name").value.trim() }).eq("id", S.me))) loadPeople();
@@ -18,6 +44,7 @@ async function currentSub() {
 }
 
 export async function renderSettings() {
+  drawPhoto();
   $("#my-name").value = S.people[S.me]?.name ?? "";
   document.querySelector(`#theme input[value="${applyTheme()}"]`).checked = true;
   const t = $("#push-text"), b = $("#push-btn");

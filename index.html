@@ -55,6 +55,10 @@ header h1 { font-size: 17px; font-weight: 600; }
 header small { display: block; font-size: 12.5px; color: var(--muted); }
 .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
   background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar.big { width: 72px; height: 72px; font-size: 28px; }
+.add.me-photo { display: flex; align-items: center; gap: 16px; }
 .title-only header { justify-content: center; }
 
 /* Chat */
@@ -225,7 +229,7 @@ nav.tabs svg { width: 26px; height: 26px; }
   <section id="chat" class="screen" hidden>
     <header>
       <button class="back" id="back" aria-label="Back to chats">‹</button>
-      <div class="avatar" id="partner-initial" aria-hidden="true">?</div>
+      <div class="avatar" id="partner-avatar" aria-hidden="true">?</div>
       <div><h1 id="partner-name">Sanfit</h1><small id="partner-sub"></small></div>
     </header>
     <div id="msgs" aria-live="polite"></div>
@@ -265,7 +269,13 @@ nav.tabs svg { width: 26px; height: 26px; }
     <header><h1>Settings</h1></header>
     <div class="pane settings">
       <div class="card">
-        <h2>Your name</h2>
+        <h2>Profile</h2>
+        <div class="add me-photo">
+          <div class="avatar big" id="my-avatar" aria-hidden="true"></div>
+          <button type="button" class="btn plain" id="photo-change">Change photo</button>
+          <button type="button" class="btn danger" id="photo-remove" hidden>Remove</button>
+          <input type="file" id="photo-file" accept="image/*" hidden>
+        </div>
         <form class="add" id="rename-form">
           <input id="my-name" maxlength="40" required aria-label="Your name">
           <button class="btn">Save name</button>
