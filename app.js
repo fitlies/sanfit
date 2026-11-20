@@ -340,8 +340,13 @@ const standalone = () => matchMedia("(display-mode: standalone)").matches || nav
 async function currentSub() {
   return "serviceWorker" in navigator ? (await navigator.serviceWorker.ready).pushManager?.getSubscription() : null;
 }
+$("#theme").onchange = (e) => {
+  try { localStorage.setItem("theme", e.target.value); } catch { /* storage blocked: keep following the phone */ }
+  applyTheme();
+};
 async function renderSettings() {
   $("#my-name").value = people[me]?.name ?? "";
+  document.querySelector(`#theme input[value="${applyTheme()}"]`).checked = true;
   const t = $("#push-text"), b = $("#push-btn");
   b.hidden = true;
   if (!("PushManager" in window) || !standalone()) {
