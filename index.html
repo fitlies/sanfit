@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Sanfit</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sanfit">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F8F6FB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#18151D" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  --accent: #6A3FA0; --on-accent: #fff;
+  --ink: #1D1A22; --muted: #857F8F; --line: #DDD7E6;
+  --bar: rgba(248,246,251,.94); --wall: #ECE8F2; --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%236A3FA0' stroke-opacity='.08' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M20 24c-4-6-13-2-9 5l9 8 9-8c4-7-5-11-9-5z'/%3E%3Ccircle cx='86' cy='22' r='6'/%3E%3Cpath d='M60 60l4 8 8 1-6 6 2 8-8-4-8 4 2-8-6-6 8-1z'/%3E%3Cpath d='M14 92q8-8 16 0t16 0'/%3E%3Cpath d='M92 88h16M100 80v16'/%3E%3C/svg%3E");
+  --in: #FFFFFF; --out: #E5DAFA; --read: #3B8DE0; --chip: #F2EEF8;
+  --danger: #C0392B;
+  font: 16px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  color: var(--ink); -webkit-text-size-adjust: 100%;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #B894F2; --on-accent: #1A1222;
+    --ink: #ECE8F2; --muted: #9C95A8; --line: #2E2936;
+    --bar: rgba(24,21,29,.94); --wall: #110E15; --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%23B894F2' stroke-opacity='.08' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M20 24c-4-6-13-2-9 5l9 8 9-8c4-7-5-11-9-5z'/%3E%3Ccircle cx='86' cy='22' r='6'/%3E%3Cpath d='M60 60l4 8 8 1-6 6 2 8-8-4-8 4 2-8-6-6 8-1z'/%3E%3Cpath d='M14 92q8-8 16 0t16 0'/%3E%3Cpath d='M92 88h16M100 80v16'/%3E%3C/svg%3E");
+    --in: #231F2A; --out: #3D2B5A; --read: #6CB4FF; --chip: #2A2532;
+  }
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bar); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+#app { position: fixed; inset: 0 0 auto 0; height: 100dvh; display: flex; flex-direction: column; }
+.screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+/* Top bar */
+header { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  background: var(--bar); border-bottom: .5px solid var(--line); backdrop-filter: blur(12px); }
+header h1 { font-size: 17px; font-weight: 600; }
+header small { display: block; font-size: 12.5px; color: var(--muted); }
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.title-only header { justify-content: center; }
+
+/* Chat */
+#msgs { flex: 1; overflow-y: auto; padding: 8px 12px 12px; background: var(--doodle) 0 0/120px, var(--wall);
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; position: relative; }
+.day { margin: 10px auto 6px; width: fit-content; padding: 4px 12px; border-radius: 8px; font-size: 12.5px;
+  font-weight: 500; background: var(--bar); color: var(--muted); box-shadow: 0 1px 1px rgba(0,0,0,.06); }
+.empty { text-align: center; color: var(--muted); margin-top: 40%; }
+.bubble { position: relative; max-width: 80%; width: fit-content; padding: 6px 9px 7px; margin-top: 2px;
+  border-radius: 10px; box-shadow: 0 1px 1px rgba(0,0,0,.08); display: flow-root; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bubble.in { background: var(--in); }
+.bubble.out { background: var(--out); margin-left: auto; }
+.bubble.first { margin-top: 8px; }
+.bubble.first.in { border-top-left-radius: 2px; }
+.bubble.first.out { border-top-right-radius: 2px; }
+.bubble.first::before { content: ""; position: absolute; top: 0; width: 8px; height: 12px; }
+.bubble.first.in::before { left: -7px; background: var(--in); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.bubble.first.out::before { right: -7px; background: var(--out); clip-path: polygon(0 0, 100% 0, 0 100%); }
+.meta { float: right; display: inline-flex; align-items: center; gap: 3px; margin: 8px 0 -5px 10px;
+  font-size: 11px; color: var(--muted); white-space: nowrap; }
+.meta svg { width: 16px; height: 11px; }
+.meta .read { color: var(--read); }
+.bubble.photo { padding: 3px; }
+.bubble.photo img { display: block; width: 240px; max-width: 100%; min-height: 120px; border-radius: 8px;
+  object-fit: cover; background: var(--chip); }
+.bubble.photo .text { display: block; padding: 4px 6px 0; }
+.bubble.photo.notext .meta { position: absolute; right: 9px; bottom: 7px; margin: 0; color: #fff;
+  text-shadow: 0 0 4px rgba(0,0,0,.6); }
+.bubble.photo:not(.notext) .meta { margin-right: 6px; margin-bottom: 0; }
+
+/* Composer */
+.composer { display: flex; align-items: flex-end; gap: 8px; padding: 6px 10px; background: var(--bar);
+  border-top: .5px solid var(--line); }
+.composer textarea { flex: 1; resize: none; max-height: 120px; padding: 7px 14px; border-radius: 18px;
+  border: .5px solid var(--line); background: var(--in); line-height: 1.3; }
+.composer textarea:focus-visible { outline: none; border-color: var(--accent); }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; flex: none; color: var(--accent); }
+.icon-btn svg { width: 24px; height: 24px; }
+.send { background: var(--accent); color: var(--on-accent); }
+.send:disabled { opacity: .4; }
+.status { font-size: 12.5px; color: var(--muted); text-align: center; padding: 2px 0 0; }
+
+/* Tabs */
+nav.tabs { display: flex; background: var(--bar); border-top: .5px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom); }
+nav.tabs button { flex: 1; display: grid; justify-items: center; gap: 2px; padding: 7px 0 5px; font-size: 10.5px;
+  color: var(--muted); position: relative; }
+nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+nav.tabs svg { width: 26px; height: 26px; }
+.badge { position: absolute; top: 3px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 600; line-height: 18px; }
+body.typing nav.tabs { display: none; }
+body.typing .composer { padding-bottom: 6px; }
+
+/* Lists (to-dos, settings) */
+.pane { flex: 1; overflow-y: auto; padding: 16px; background: var(--wall); }
+.card { background: var(--in); border-radius: 12px; padding: 4px 0; margin-bottom: 18px; }
+.card h2 { font-size: 13px; font-weight: 500; color: var(--muted); padding: 10px 16px 4px; }
+.add { padding: 12px 16px; display: grid; gap: 10px; }
+.add input, .field { width: 100%; padding: 10px 12px; border-radius: 10px; border: .5px solid var(--line); background: var(--wall); }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: block; padding: 6px 12px; border-radius: 16px; background: var(--chip); font-size: 14px; }
+.seg input:checked + span { background: var(--accent); color: var(--on-accent); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { padding: 10px 16px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.plain { background: none; color: var(--accent); padding-left: 0; }
+.btn.danger { background: none; color: var(--danger); padding-left: 0; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-top: .5px solid var(--line); }
+.card > .row:first-of-type { border-top: 0; }
+.check { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--muted); flex: none; display: grid; place-items: center; }
+.done .check { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.check svg { width: 14px; height: 14px; }
+.tmain { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.done .ttitle { text-decoration: line-through; color: var(--muted); }
+.tsub { display: block; font-size: 13px; color: var(--muted); }
+.for { font-size: 12.5px; padding: 2px 8px; border-radius: 10px; background: var(--chip); white-space: nowrap; }
+.for.me { background: var(--out); }
+.del { color: var(--muted); width: 32px; height: 32px; }
+.none { padding: 14px 16px; color: var(--muted); }
+.settings p { padding: 4px 16px 12px; color: var(--muted); font-size: 14.5px; }
+.settings .add { padding-top: 6px; }
+
+/* Login */
+.login { flex: 1; display: grid; align-content: center; gap: 14px; padding: 32px 28px; background: var(--wall); }
+.login h1 { font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: var(--accent); }
+.login p { color: var(--muted); }
+.err { color: var(--danger); font-size: 14.5px; }
+
+#toast { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 60px); z-index: 8;
+  padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--wall); font-size: 14.5px; }
+
+/* Photo viewer */
+#viewer { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: grid; place-items: center; z-index: 9; }
+#viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+#viewer button { position: absolute; top: calc(env(safe-area-inset-top) + 8px); right: 12px; color: #fff; font-size: 17px; padding: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <section id="login" class="login" hidden>
+    <h1>Sanfit</h1>
+    <p id="login-hint">Sign in with your email and password.</p>
+    <form id="login-form" class="add" style="padding:0">
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="Email" required>
+      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Password" minlength="8" required>
+      <button class="btn" id="login-btn">Sign in</button>
+      <button type="button" id="mode" class="btn plain">First time here? Create your password</button>
+    </form>
+    <p class="err" id="login-err" role="alert"></p>
+  </section>
+
+  <section id="name-step" class="login" hidden>
+    <h1>Hi!</h1>
+    <p>What should we call you?</p>
+    <form id="name-form" class="add" style="padding:0">
+      <input id="first-name" class="field" autocomplete="given-name" placeholder="Your name" maxlength="40" required>
+      <button class="btn">Continue</button>
+    </form>
+  </section>
+
+  <section id="chat" class="screen" hidden>
+    <header>
+      <div class="avatar" id="partner-initial" aria-hidden="true">?</div>
+      <div><h1 id="partner-name">Sanfit</h1><small id="partner-sub"></small></div>
+    </header>
+    <div id="msgs" aria-live="polite"></div>
+    <p class="status" id="chat-status" hidden></p>
+    <form class="composer" id="composer">
+      <button type="button" class="icon-btn" id="attach" aria-label="Add photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <textarea id="text" rows="1" placeholder="Message" aria-label="Message"></textarea>
+      <button class="icon-btn send" id="send" aria-label="Send" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+      </button>
+    </form>
+  </section>
+
+  <section id="todos" class="screen title-only" hidden>
+    <header><h1>To-dos</h1></header>
+    <div class="pane">
+      <form class="card add" id="todo-form">
+        <input id="todo-title" placeholder="Add a to-do" maxlength="200" required aria-label="New to-do">
+        <div class="seg" id="assign" role="radiogroup" aria-label="Who's doing it"></div>
+        <button class="btn">Add</button>
+      </form>
+      <div class="card" id="open-list"></div>
+      <div class="card" id="done-list" hidden></div>
+    </div>
+  </section>
+
+  <section id="settings" class="screen title-only" hidden>
+    <header><h1>Settings</h1></header>
+    <div class="pane settings">
+      <div class="card">
+        <h2>Your name</h2>
+        <form class="add" id="rename-form">
+          <input id="my-name" maxlength="40" required aria-label="Your name">
+          <button class="btn">Save name</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Notifications</h2>
+        <p id="push-text"></p>
+        <div class="add" style="padding-top:0"><button class="btn" id="push-btn" hidden>Turn on notifications</button></div>
+      </div>
+      <div class="card"><div class="add"><button class="btn danger" id="signout">Sign out</button></div></div>
+    </div>
+  </section>
+
+  <!-- To add an add-on later: add a <section class="screen"> above and a button here with the same data-tab. -->
+  <nav class="tabs" id="tabs" hidden>
+    <button data-tab="chat" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8z"/></svg>Chats
+    </button>
+    <button data-tab="todos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 8h8M12 16h8"/></svg>To-dos
+      <span class="badge" id="todo-badge" hidden></span>
+    </button>
+    <button data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings
+    </button>
+  </nav>
+</div>
+
+<p id="toast" role="alert" hidden></p>
+<div id="viewer" hidden><button aria-label="Close photo">Close</button><img alt="Photo"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
