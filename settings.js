@@ -1,0 +1,54 @@
+// Settings tab: name, appearance, notifications, sign out. Drawn when you open the tab, not on every update.
+import { b64urlToBytes } from "./lib.js";
+import { VAPID_PUBLIC_KEY } from "./config.js";
+import { S, sb, $, save, alertBox, loadPeople } from "./state.js";
+
+$("#rename-form").onsubmit = async (e) => {
+  e.preventDefault();
+  if (await save(sb.from("profiles").update({ name: $("#my-name").value.trim() }).eq("id", S.me))) loadPeople();
+};
+
+$("#theme").onchange = (e) => {
+  try { localStorage.setItem("theme", e.target.value); } catch { /* storage blocked: keep following the phone */ }
+  applyTheme(); // defined in index.html so the theme is set before first paint
+};
+
+async function currentSub() {
+  return "serviceWorker" in navigator ? (await navigator.serviceWorker.ready).pushManager?.getSubscription() : null;
+}
+
+export async function renderSettings() {
+  $("#my-name").value = S.people[S.me]?.name ?? "";
+  document.querySelector(`#theme input[value="${applyTheme()}"]`).checked = true;
+  const t = $("#push-text"), b = $("#push-btn");
+  b.hidden = true;
+  if (!("PushManager" in window)) {
+    // iPhone only allows alerts for apps opened from the Home Screen.
+    t.textContent = "To get alerts, open Sanfit from your Home Screen. iPhone: in Safari tap Share, then Add to Home Screen. Android: in Chrome tap ⋮, then Add to Home screen.";
+  } else if (Notification.permission === "denied") {
+    t.textContent = "Notifications are blocked. Turn them on in your phone's Settings, under Notifications for Sanfit (or Chrome).";
+  } else if (Notification.permission === "granted" && (await currentSub())) {
+    t.textContent = "On. You'll get alerts for new messages and to-dos.";
+  } else {
+    t.textContent = "Get alerts for new messages, to-dos given to you, and to-dos that come due.";
+    b.hidden = false;
+  }
+}
+
+$("#push-btn").onclick = async () => {
+  if ((await Notification.requestPermission()) !== "granted") return renderSettings();
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(VAPID_PUBLIC_KEY) });
+    await save(sb.from("push_subs").upsert({ endpoint: sub.endpoint, sub: sub.toJSON(), user_id: S.me }));
+  } catch (err) {
+    alertBox(err);
+  }
+  renderSettings();
+};
+
+$("#signout").onclick = async () => {
+  const sub = await currentSub();
+  if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+  await sb.auth.signOut();
+};
