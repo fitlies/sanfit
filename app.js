@@ -57,7 +57,7 @@ $("#login-form").onsubmit = async (e) => {
   const err = $("#login-err");
   err.textContent = "";
   if (signingUp) {
-    const { error } = await sb.auth.signUp({ email, password });
+    const { error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) return (err.textContent = /database error|not allowed/i.test(error.message)
       ? "This email isn't on Sanfit." : `Couldn't create your account: ${error.message}`);
     $("#mode").click();
@@ -69,6 +69,12 @@ $("#login-form").onsubmit = async (e) => {
       : "Wrong email or password.";
   }
 };
+
+// The confirm link lands here; Supabase reports a used or stale link in the URL hash.
+if (location.hash.includes("error_code")) {
+  $("#login-err").textContent = "That link has expired or was already used. If you've confirmed before, just sign in.";
+  history.replaceState(null, "", location.pathname);
+}
 
 sb.auth.onAuthStateChange((event, session) => {
   if (session?.user && session.user.id !== me) { me = session.user.id; setTimeout(start); } // outside the auth callback
