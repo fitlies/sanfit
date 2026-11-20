@@ -64,7 +64,8 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
   font-weight: 500; background: var(--bar); color: var(--muted); box-shadow: 0 1px 1px rgba(0,0,0,.06); }
 .empty { text-align: center; color: var(--muted); margin-top: 40%; }
 .bubble { position: relative; max-width: 80%; width: fit-content; padding: 6px 9px 7px; margin-top: 2px;
-  border-radius: 10px; box-shadow: 0 1px 1px rgba(0,0,0,.08); display: flow-root; overflow-wrap: anywhere; white-space: pre-wrap; }
+  border-radius: 10px; box-shadow: 0 1px 1px rgba(0,0,0,.08); display: flow-root; overflow-wrap: anywhere; white-space: pre-wrap;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: pan-y; transition: transform .15s; }
 .bubble.in { background: var(--in); }
 .bubble.out { background: var(--out); margin-left: auto; }
 .bubble.first { margin-top: 8px; }
@@ -84,6 +85,34 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
 .bubble.photo.notext .meta { position: absolute; right: 9px; bottom: 7px; margin: 0; color: #fff;
   text-shadow: 0 0 4px rgba(0,0,0,.6); }
 .bubble.photo:not(.notext) .meta { margin-right: 6px; margin-bottom: 0; }
+
+.bubble.flash { animation: flash 1s; }
+@keyframes flash { 50% { filter: brightness(.85); } }
+.quote { display: block; margin: 0 0 4px; padding: 4px 8px; border-left: 3px solid var(--accent); border-radius: 6px;
+  background: rgba(0,0,0,.05); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme="dark"] .quote { background: rgba(255,255,255,.07); }
+.quote b { display: block; color: var(--accent); font-size: 12.5px; }
+.bubble.photo .quote { margin: 3px 3px 4px; }
+.bubble.reacted { margin-bottom: 14px; }
+.reacts { position: absolute; bottom: -14px; right: 8px; padding: 1px 6px; border-radius: 12px; background: var(--in);
+  box-shadow: 0 1px 2px rgba(0,0,0,.15); font-size: 13px; }
+.bubble.in .reacts { right: auto; left: 8px; }
+#replybar { display: flex; align-items: center; gap: 8px; padding: 6px 10px 0; background: var(--bar); }
+#replybar .quote { flex: 1; margin: 0; }
+
+/* Chat list */
+.list { flex: 1; overflow-y: auto; background: var(--in); }
+.chatrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0 0 16px; text-align: left; }
+.chatrow .avatar { width: 50px; height: 50px; font-size: 20px; }
+.chatrow .body { flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+  padding: 4px 16px 12px 0; border-bottom: .5px solid var(--line); }
+.chatrow .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chatrow .when { font-size: 13px; color: var(--muted); }
+.chatrow .when.new { color: var(--accent); font-weight: 600; }
+.chatrow .preview { color: var(--muted); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: var(--on-accent);
+  font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; justify-self: end; }
+.back { font-size: 32px; line-height: 1; color: var(--accent); padding: 0 4px 4px 0; }
 
 /* Composer */
 .composer { display: flex; align-items: flex-end; gap: 8px; padding: 6px 10px; background: var(--bar);
@@ -106,8 +135,6 @@ nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
 nav.tabs svg { width: 26px; height: 26px; }
 .badge { position: absolute; top: 3px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 600; line-height: 18px; }
-body.typing nav.tabs { display: none; }
-body.typing .composer { padding-bottom: 6px; }
 
 /* Lists (to-dos, settings) */
 .pane { flex: 1; overflow-y: auto; padding: 16px; background: var(--wall); }
@@ -132,6 +159,9 @@ body.typing .composer { padding-bottom: 6px; }
 .tmain { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .done .ttitle { text-decoration: line-through; color: var(--muted); }
 .tsub { display: block; font-size: 13px; color: var(--muted); }
+.tsub.late { color: var(--danger); }
+.due { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.pick { margin-bottom: 14px; }
 .for { font-size: 12.5px; padding: 2px 8px; border-radius: 10px; background: var(--chip); white-space: nowrap; }
 .for.me { background: var(--out); }
 .del { color: var(--muted); width: 32px; height: 32px; }
@@ -147,6 +177,15 @@ body.typing .composer { padding-bottom: 6px; }
 
 #toast { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 60px); z-index: 8;
   padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--wall); font-size: 14.5px; }
+
+/* Long-press sheet */
+#sheet { position: fixed; inset: 0; z-index: 9; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; }
+.sheet-card { width: 100%; background: var(--in); border-radius: 14px 14px 0 0; display: grid; gap: 6px;
+  padding: 12px 12px calc(env(safe-area-inset-bottom) + 12px); }
+.emojis { display: flex; justify-content: space-around; padding-bottom: 6px; }
+.emojis button { font-size: 28px; width: 46px; height: 46px; border-radius: 50%; }
+.emojis button[aria-pressed="true"] { background: var(--chip); }
+.sheet-card > button { padding: 12px; border-radius: 10px; background: var(--chip); font-weight: 500; }
 
 /* Photo viewer */
 #viewer { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: grid; place-items: center; z-index: 9; }
@@ -178,13 +217,23 @@ body.typing .composer { padding-bottom: 6px; }
     </form>
   </section>
 
+  <section id="chats" class="screen title-only" hidden>
+    <header><h1>Chats</h1></header>
+    <div class="list" id="chat-list"></div>
+  </section>
+
   <section id="chat" class="screen" hidden>
     <header>
+      <button class="back" id="back" aria-label="Back to chats">‹</button>
       <div class="avatar" id="partner-initial" aria-hidden="true">?</div>
       <div><h1 id="partner-name">Sanfit</h1><small id="partner-sub"></small></div>
     </header>
     <div id="msgs" aria-live="polite"></div>
     <p class="status" id="chat-status" hidden></p>
+    <div id="replybar" hidden>
+      <div class="quote"><b id="reply-name"></b><span id="reply-text"></span></div>
+      <button type="button" class="icon-btn" id="reply-cancel" aria-label="Cancel reply">×</button>
+    </div>
     <form class="composer" id="composer">
       <button type="button" class="icon-btn" id="attach" aria-label="Add photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -200,9 +249,11 @@ body.typing .composer { padding-bottom: 6px; }
   <section id="todos" class="screen title-only" hidden>
     <header><h1>To-dos</h1></header>
     <div class="pane">
+      <div class="seg pick" id="todo-chat" role="radiogroup" aria-label="Whose list" hidden></div>
       <form class="card add" id="todo-form">
         <input id="todo-title" placeholder="Add a to-do" maxlength="200" required aria-label="New to-do">
         <div class="seg" id="assign" role="radiogroup" aria-label="Who's doing it"></div>
+        <label class="due">Due (optional)<input type="datetime-local" id="todo-due"></label>
         <button class="btn">Add</button>
       </form>
       <div class="card" id="open-list"></div>
@@ -239,8 +290,9 @@ body.typing .composer { padding-bottom: 6px; }
 
   <!-- To add an add-on later: add a <section class="screen"> above and a button here with the same data-tab. -->
   <nav class="tabs" id="tabs" hidden>
-    <button data-tab="chat" aria-current="page">
+    <button data-tab="chats" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8z"/></svg>Chats
+      <span class="badge" id="chat-badge" hidden></span>
     </button>
     <button data-tab="todos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 8h8M12 16h8"/></svg>To-dos
@@ -253,6 +305,14 @@ body.typing .composer { padding-bottom: 6px; }
 </div>
 
 <p id="toast" role="alert" hidden></p>
+<div id="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-label="Message options">
+    <div class="emojis" id="emojis"></div>
+    <button id="act-reply">Reply</button>
+    <button id="act-copy">Copy text</button>
+    <button id="act-cancel">Cancel</button>
+  </div>
+</div>
 <div id="viewer" hidden><button aria-label="Close photo">Close</button><img alt="Photo"></div>
 
 <script type="module" src="app.js"></script>
