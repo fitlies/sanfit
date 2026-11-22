@@ -13,6 +13,11 @@ const TABS = ["chats", "todos", "diary", "games", "settings"];
 const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame }; // redrawn on every change
 const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
 const BACK = { chat: "chats", "diary-entry": "diary", game: "games" }; // where the back button goes
+const BADGES = {                                                       // the number on each tab
+  "chat-badge": () => S.chats.reduce((n, c) => n + unreadIn(c.id), 0),
+  "todo-badge": () => S.todos.filter((t) => !t.done_at && t.assignee === S.me).length,
+  "game-badge": () => S.games.filter((g) => g.turn === S.me).length,
+};
 
 function render() {
   for (const s of document.querySelectorAll("#app > section")) s.hidden = s.id !== S.screen; // every screen is a <section> in #app
@@ -20,17 +25,14 @@ function render() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.dataset.tab === S.screen ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
 
-  const unread = S.chats.reduce((n, c) => n + unreadIn(c.id), 0);
-  $("#chat-badge").hidden = !unread;
-  $("#chat-badge").textContent = unread;
+  const counts = Object.fromEntries(Object.entries(BADGES).map(([id, count]) => [id, count()]));
+  for (const [id, n] of Object.entries(counts)) {
+    $("#" + id).hidden = !n;
+    $("#" + id).textContent = n;
+  }
+  const unread = counts["chat-badge"];
   if (unread) navigator.setAppBadge?.(unread).catch(() => {}); // Home Screen icon, where supported
   else navigator.clearAppBadge?.().catch(() => {});
-  const mine = S.todos.filter((t) => !t.done_at && t.assignee === S.me).length;
-  $("#todo-badge").hidden = !mine;
-  $("#todo-badge").textContent = mine;
-  const myTurn = S.games.filter((g) => g.turn === S.me).length;
-  $("#game-badge").hidden = !myTurn;
-  $("#game-badge").textContent = myTurn;
 
   LIVE[S.screen]?.();
 }
@@ -128,5 +130,5 @@ document.addEventListener("visibilitychange", () => {
   loadMessages().then(markRead);
   loadReactions();
   loadTodos();
-  loadGames();
+  loadGames(true);
 });

@@ -191,10 +191,13 @@ export async function loadTodos() {
   S.todos = data;
   changed();
 }
-// shortcut: the 20 most recent games, all fetched again on return (about 1 KB each); fetch only changed ones if lists grow.
-export async function loadGames() {
-  const data = await fetchRows(sb.from("games").select("*").order("updated_at", { ascending: false }).limit(20));
+// The 20 most recent games at launch; on return, only games changed since (the database sets updated_at).
+// shortcut: a game removed while you were away stays listed until the next launch.
+export async function loadGames(onlyChanged = false) {
+  const newest = onlyChanged && S.games.length ? new Date(Math.max(...S.games.map((g) => Date.parse(g.updated_at)))).toISOString() : null;
+  const query = sb.from("games").select("*").order("updated_at", { ascending: false }).limit(20);
+  const data = await fetchRows(newest ? query.gt("updated_at", newest) : query);
   if (!data) return;
-  S.games = data;
+  S.games = newest ? [...data, ...S.games.filter((g) => !data.some((d) => d.id === g.id))] : data;
   changed();
 }
