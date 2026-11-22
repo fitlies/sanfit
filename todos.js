@@ -39,14 +39,16 @@ $("#todo-form").onsubmit = async (e) => {
   const dueRaw = $("#todo-due").value; // local time from the phone's picker
   const due_at = dueRaw ? new Date(dueRaw).toISOString() : null;
   const countdown = !!due_at && $("#todo-countdown").checked;
-  if (!(await save(sb.from("todos").insert({ chat_id: S.todoChat, title, assignee: S.assignee || null, due_at, countdown })))) return;
-  $("#todo-title").value = "";
-  $("#todo-due").value = "";
-  $("#todo-countdown").checked = false;
-  $("#countdown-row").hidden = true;
+  const repeat = (due_at && $("#todo-repeat").value) || null;
+  if (!(await save(sb.from("todos").insert({ chat_id: S.todoChat, title, assignee: S.assignee || null, due_at, countdown, repeat })))) return;
+  $("#todo-form").reset();
+  $("#due-extras").hidden = true;
   loadTodos();
 };
-$("#todo-due").oninput = (e) => { $("#countdown-row").hidden = !e.target.value; }; // a countdown needs a date
+$("#todo-due").oninput = (e) => { $("#due-extras").hidden = !e.target.value; }; // repeats and countdowns need a date
+
+// "every Monday" for a weekly to-do, from its due date.
+const repeats = (t) => (t.repeat === "week" ? `every ${new Date(t.due_at).toLocaleDateString("en-SG", { weekday: "long" })}` : `every ${t.repeat}`);
 
 function todoRow(t) {
   const r = el("div", "row" + (t.done_at ? " done" : ""));
@@ -63,7 +65,7 @@ function todoRow(t) {
     main.append(el("span", "tsub", `Done by ${nameOf(t.done_by)}, ${whenLabel(t.done_at)}`));
   } else if (t.due_at) {
     const late = new Date(t.due_at) < new Date();
-    main.append(el("span", "tsub" + (late ? " late" : ""), (t.countdown ? "⏳ " : "") + dueText(t.due_at)));
+    main.append(el("span", "tsub" + (late ? " late" : ""), (t.countdown ? "⏳ " : "") + dueText(t.due_at) + (t.repeat ? `. Repeats ${repeats(t)}` : "")));
   }
   r.append(c, main);
   if (t.assignee && !t.done_at) r.append(el("span", "for" + (t.assignee === S.me ? " me" : ""), t.assignee === S.me ? "For you" : `For ${nameOf(t.assignee)}`));
