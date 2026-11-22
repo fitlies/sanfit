@@ -9,13 +9,12 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
 const TABS = ["chats", "todos", "diary", "settings"];
-const SCREENS = ["login", "name-step", "chats", "chat", "todos", "diary", "diary-entry", "settings"];
 const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary }; // redrawn on every change
 const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
 const BACK = { chat: "chats", "diary-entry": "diary" };      // where the back button goes
 
 function render() {
-  for (const s of SCREENS) $("#" + s).hidden = s !== S.screen;
+  for (const s of document.querySelectorAll("#app > section")) s.hidden = s.id !== S.screen; // every screen is a <section> in #app
   $("#tabs").hidden = !TABS.includes(S.screen);
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.dataset.tab === S.screen ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
@@ -84,7 +83,7 @@ sb.auth.onAuthStateChange((event, session) => {
     S.myEmail = session.user.email.toLowerCase();
     setTimeout(start); // outside the auth callback
   }
-  if (event === "SIGNED_OUT") { S.me = null; live?.unsubscribe(); S.screen = "login"; render(); }
+  if (event === "SIGNED_OUT") location.reload(); // start clean, so nothing of the last person stays in memory
 });
 sb.auth.getSession().then(({ data }) => { if (!data.session) { S.screen = "login"; render(); } });
 
