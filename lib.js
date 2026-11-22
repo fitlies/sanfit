@@ -28,3 +28,16 @@ export function fitSize(w, h, max) {
   const k = Math.min(1, max / Math.max(w, h));
   return [Math.round(w * k), Math.round(h * k)];
 }
+
+// "2026-11-22" for a date, in the phone's own time zone.
+export const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// Weeks of a month for a Sunday-first calendar: each week is 7 day numbers, with null for blanks.
+export function monthGrid(year, month) {
+  const first = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  while (cells.length % 7) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
+}

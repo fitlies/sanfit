@@ -173,6 +173,66 @@ nav.tabs svg { width: 26px; height: 26px; }
 .settings p { padding: 4px 16px 12px; color: var(--muted); font-size: 14.5px; }
 .settings .add { padding-top: 6px; }
 
+/* Diary */
+.dpage { --page: var(--wall); --page-ink: var(--ink); --page-muted: var(--muted); --page-card: var(--in); --page-line: var(--line);
+  background: var(--page); color: var(--page-ink); }
+[data-dtheme="paper"] .dpage{ --page: #F6F0E2; --page-ink: #2B2620; --page-muted: #857B6B; --page-card: #FFFCF4; --page-line: #E4D9C2; }
+[data-dtheme="rose"] .dpage { --page: #FBEDEF; --page-ink: #3A2328; --page-muted: #96717A; --page-card: #FFF7F8; --page-line: #F0D3D9; }
+[data-dtheme="mint"] .dpage { --page: #E7F4ED; --page-ink: #1F3329; --page-muted: #6A8B79; --page-card: #F6FCF8; --page-line: #CDE5D8; }
+[data-dtheme="sky"] .dpage  { --page: #E9F0FA; --page-ink: #1E2A3A; --page-muted: #6C7F96; --page-card: #F7FAFE; --page-line: #D1DEEF; }
+[data-dtheme="night"] .dpage{ --page: #191A2E; --page-ink: #E7E6F5; --page-muted: #9A98B8; --page-card: #24254A; --page-line: #33355E; }
+#diary header h1 { flex: 1; }
+.tools { display: flex; gap: 6px; }
+.icon-btn.on { background: var(--chip); }
+.lock { display: grid; justify-items: center; gap: 14px; padding-top: 18vh; text-align: center; }
+.lock p { color: var(--page-muted); }
+#pin { width: 8ch; padding: 10px 0; font-size: 32px; letter-spacing: .6em; text-indent: .6em; text-align: center;
+  border: 0; border-bottom: 2px solid var(--accent); background: none; color: var(--page-ink); }
+#pin:focus-visible { outline: none; }
+#pin-pass { display: grid; gap: 10px; width: min(320px, 100%); }
+.themes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.swatch { padding: 8px 12px; border-radius: 16px; font-size: 14px; border: 2px solid transparent; }
+.swatch[aria-pressed="true"] { border-color: var(--accent); }
+.sw-plain { background: var(--in); color: var(--ink); } .sw-paper { background: #F6F0E2; color: #2B2620; }
+.sw-rose { background: #FBEDEF; color: #3A2328; } .sw-mint { background: #E7F4ED; color: #1F3329; }
+.sw-sky { background: #E9F0FA; color: #1E2A3A; } .sw-night { background: #191A2E; color: #E7E6F5; }
+.dmonth { font-size: 13px; font-weight: 600; color: var(--page-muted); margin: 6px 4px 8px; }
+.dcard { display: flex; align-items: center; gap: 14px; width: 100%; margin-bottom: 10px; padding: 12px 14px; text-align: left;
+  border-radius: 14px; background: var(--page-card); color: var(--page-ink); }
+.ddate { display: grid; justify-items: center; min-width: 40px; }
+.ddate b { font-size: 24px; line-height: 1; }
+.ddate span { font-size: 12px; color: var(--page-muted); }
+.dmain { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.dtitle { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsnip { font-size: 14px; color: var(--page-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dside { display: grid; justify-items: end; gap: 4px; }
+.dmood { font-size: 24px; }
+.dcount { font-size: 12px; color: var(--page-muted); white-space: nowrap; }
+.cal-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-bar button { font-size: 28px; padding: 0 12px; color: var(--accent); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-head { text-align: center; font-size: 12px; color: var(--page-muted); }
+.cal-day { aspect-ratio: 1; display: grid; align-content: center; justify-items: center; gap: 1px; border-radius: 10px;
+  background: var(--page-card); color: var(--page-ink); }
+.cal-day.today { outline: 2px solid var(--accent); }
+.cal-num { font-size: 13px; }
+.cal-day.has .cal-num { font-weight: 700; }
+.cal-mood { font-size: 18px; line-height: 1; }
+.cal-moods { margin-top: 14px; text-align: center; color: var(--page-muted); font-size: 18px; }
+.entry-date { flex: 1; border: 0; background: none; font-weight: 600; font-size: 16px; }
+.moods { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.mood { font-size: 28px; width: 46px; height: 46px; border-radius: 50%; }
+.mood[aria-pressed="true"] { background: var(--page-card); box-shadow: 0 0 0 2px var(--accent); }
+.entry-title { width: 100%; padding: 6px 0; border: 0; background: none; font-size: 22px; font-weight: 700; color: var(--page-ink); }
+.entry-body { width: 100%; min-height: 45vh; padding: 0; border: 0; resize: none; color: var(--page-ink); font-size: 17px; line-height: 28px;
+  background: repeating-linear-gradient(to bottom, transparent 0 27px, var(--page-line) 27px 28px); background-attachment: local; }
+.entry-title:focus-visible, .entry-body:focus-visible { outline: none; }
+.dphotos-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.dthumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: var(--page-card); }
+.dthumb img { width: 100%; height: 100%; object-fit: cover; }
+.dthumb.add { display: grid; place-items: center; color: var(--accent); font-size: 14px; font-weight: 600; border: 1.5px dashed var(--page-line); }
+.dthumb-x { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; line-height: 1; }
+
 /* Login */
 .login { flex: 1; display: grid; align-content: center; gap: 14px; padding: 32px 28px; background: var(--wall); }
 .login h1 { font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: var(--accent); }
@@ -298,6 +358,64 @@ nav.tabs svg { width: 26px; height: 26px; }
     </div>
   </section>
 
+  <section id="diary" class="screen" hidden>
+    <header>
+      <h1>Diary</h1>
+      <span class="tools" id="diary-tools" hidden>
+        <button class="icon-btn" id="diary-view" aria-label="Show calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+        </button>
+        <button class="icon-btn" id="diary-theme" aria-label="Diary theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.3-1.7-.4-1 .3-2.3 1.5-2.3H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>
+        </button>
+        <button class="icon-btn send" id="diary-new" aria-label="New entry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </span>
+    </header>
+    <div class="pane dpage">
+      <div class="lock" id="diary-lock">
+        <p id="pin-title"></p>
+        <input id="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="Diary PIN">
+        <form id="pin-pass" hidden>
+          <input id="pin-password" class="field" type="password" autocomplete="current-password" placeholder="Sanfit password" required>
+          <button class="btn">Reset PIN</button>
+        </form>
+        <p class="err" id="pin-err" role="alert"></p>
+        <button type="button" class="btn plain" id="pin-forgot">Forgot PIN?</button>
+      </div>
+      <div id="diary-main" hidden>
+        <div class="themes" id="theme-row" hidden></div>
+        <div id="diary-list"></div>
+        <div id="diary-cal" hidden>
+          <div class="cal-bar">
+            <button id="cal-prev" aria-label="Previous month">‹</button>
+            <b id="cal-title"></b>
+            <button id="cal-next" aria-label="Next month">›</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <p class="cal-moods" id="cal-moods"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="diary-entry" class="screen" hidden>
+    <header>
+      <button class="back" id="entry-back" aria-label="Back to diary">‹</button>
+      <input type="date" id="entry-date" class="entry-date" aria-label="Date">
+      <button class="btn plain" id="entry-done">Done</button>
+    </header>
+    <div class="pane dpage">
+      <div class="moods" id="entry-moods" role="group" aria-label="Mood"></div>
+      <input id="entry-title" class="entry-title" placeholder="Title" maxlength="200" aria-label="Title">
+      <textarea id="entry-body" class="entry-body" placeholder="Dear diary…" maxlength="20000" aria-label="Entry"></textarea>
+      <div class="dphotos-row" id="entry-photos"></div>
+      <input type="file" id="entry-file" accept="image/*" multiple hidden>
+      <button type="button" class="btn danger" id="entry-delete" hidden>Delete entry</button>
+    </div>
+  </section>
+
   <!-- To add an add-on later: add a <section class="screen"> above and a button here with the same data-tab. -->
   <nav class="tabs" id="tabs" hidden>
     <button data-tab="chats" aria-current="page">
@@ -307,6 +425,9 @@ nav.tabs svg { width: 26px; height: 26px; }
     <button data-tab="todos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 8h8M12 16h8"/></svg>To-dos
       <span class="badge" id="todo-badge" hidden></span>
+    </button>
+    <button data-tab="diary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v18M11 8h4"/></svg>Diary
     </button>
     <button data-tab="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings

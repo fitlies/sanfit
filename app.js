@@ -3,15 +3,19 @@ import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMess
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
+import { renderDiary, enterDiary } from "./diary.js";
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
-const TABS = ["chats", "todos", "settings"];
-const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos }; // settings is a form: drawn on entry only
+const TABS = ["chats", "todos", "diary", "settings"];
+const SCREENS = ["login", "name-step", "chats", "chat", "todos", "diary", "diary-entry", "settings"];
+const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary }; // redrawn on every change
+const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
+const BACK = { chat: "chats", "diary-entry": "diary" };      // where the back button goes
 
 function render() {
-  for (const s of ["login", "name-step", "chats", "chat", "todos", "settings"]) $("#" + s).hidden = s !== S.screen;
+  for (const s of SCREENS) $("#" + s).hidden = s !== S.screen;
   $("#tabs").hidden = !TABS.includes(S.screen);
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.dataset.tab === S.screen ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
@@ -33,10 +37,10 @@ function go(screen) {
   S.screen = screen;
   S.chatId = null;
   render();
-  if (screen === "settings") renderSettings();
+  ENTER[screen]?.();
 }
 $("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
-window.onpopstate = () => { if (S.screen === "chat") go("chats"); }; // back button / Android back
+window.onpopstate = () => { if (BACK[S.screen]) go(BACK[S.screen]); }; // back button / Android back
 
 // ---------- sign-in ----------
 let signingUp = false;
