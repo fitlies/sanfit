@@ -58,6 +58,13 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
         <span class="gear" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></span>
       </button>
     </div>
+    <form class="findbar" id="find-form" role="search">
+      <label class="find-field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input id="find-q" type="search" placeholder="Search people, to-dos and messages" aria-label="Search" maxlength="100" enterkeyhint="search" autocomplete="off">
+      </label>
+      <button type="button" class="btn plain" id="find-cancel" hidden>Cancel</button>
+    </form>
     <!-- To add an add-on later: add a <section class="screen"> below and a tile here with the same data-tab. -->
     <nav class="tiles" id="tabs" aria-label="Sanfit">
       <button data-tab="chats"><span class="tile">
@@ -79,6 +86,10 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
     <div class="pane" id="glance"></div>
   </section>
 
+  <section id="search" class="screen" aria-label="Search results" hidden>
+    <div class="pane" id="find-results"></div>
+  </section>
+
   <section id="chats" class="screen" aria-label="Chats" hidden>
     <div class="list" id="chat-list"></div>
   </section>
@@ -93,6 +104,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
     </header>
     <p class="countdown" id="countdown" hidden></p>
     <div id="msgs" aria-live="polite"></div>
+    <button type="button" class="latest" id="latest" hidden>Back to latest</button>
     <p class="status" id="chat-status" hidden></p>
     <div id="replybar" hidden>
       <div class="quote"><b id="reply-name"></b><span id="reply-text"></span></div>

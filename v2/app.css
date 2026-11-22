@@ -144,8 +144,25 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
   box-shadow: 0 0 0 2px var(--bar); }
 @media (prefers-reduced-motion: reduce) { .screen { animation: none; } .tile { transition: none; } }
 
+/* Search bar under the greeting. While searching, the greeting and tiles tuck away. */
+.findbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px 0; }
+.find-field { flex: 1; min-width: 0; position: relative; display: block; }
+.find-field svg { position: absolute; left: 14px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.find-field input { width: 100%; height: 44px; padding: 0 14px 0 40px; border-radius: 22px; border: .5px solid var(--line);
+  background: var(--in); font-size: 16px; /* 16px stops iPhone zooming in */ }
+.find-field input:focus-visible { outline: none; border-color: var(--accent); }
+#find-cancel { min-height: 44px; padding: 0 4px; }
+.find-field input::placeholder { color: var(--muted); }
+#top.slim .findbar, #top.searching .hello, #top.searching .tiles { display: none; }
+#top.searching .findbar { padding-bottom: 10px; }
+.find-hint { text-align: center; padding-top: 32px; }
+#msgs.earlier { padding-bottom: 64px; } /* room for the pill under the last message */
+.latest { align-self: center; position: relative; z-index: 1; margin: -56px 0 12px; padding: 0 18px; min-height: 44px; border-radius: 22px;
+  background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
 /* Home cards */
-.glance-row { width: 100%; text-align: left; }
+.glance-row { width: 100%; min-height: 44px; text-align: left; }
+.retry { padding: 0 16px 12px; }
 .card .btn.more { display: block; padding: 6px 16px 12px; }
 .caught-up { text-align: center; padding-top: 32px; }
 
@@ -321,12 +338,12 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
 .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; }
 .who > span:last-child { min-width: 0; }
 .hit { display: grid; gap: 2px; width: 100%; padding: 10px 16px; text-align: left; border-top: .5px solid var(--line); }
-.hit:first-child { border-top: 0; }
+.hit:first-of-type { border-top: 0; }
 .hit:disabled { opacity: .7; cursor: default; }
 .hit-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
 .hit-top b { color: var(--ink); font-weight: 600; }
-.hit-text { overflow-wrap: anywhere; }
-mark { background: var(--out); color: inherit; border-radius: 3px; padding: 0 1px; }
+.hit-text { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; font-weight: 600; border-radius: 3px; padding: 0 1px; }
 
 /* Diary search and "On this day" */
 .dsearch { margin-bottom: 12px; }

@@ -5,6 +5,7 @@ import { S, sb, $, el, TICK, changed, open, save, alertBox, photo, uploadPhoto, 
 const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 6l3 3 6-7M7 8l1 1 6-7"/></svg>';
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 let replyTo = null, stick = true, pendingJump = null;
+let around = null, opening = 0; // around: { chatId, rows }, older messages around a search result, for this visit only
 
 const other = (c) => personByEmail(otherEmail(c)); // undefined until they join
 const joined = (c) => !!other(c);
@@ -31,13 +32,35 @@ export function renderChatList() {
   }) : [el("p", "none", "No chats yet.")]));
 }
 
-export function openChat(id) {
+// at: a message to scroll to. rows: older messages to show instead of the latest (see openAt).
+export function openChat(id, { at = null, rows = null } = {}) {
   S.chatId = id;
-  stick = true;
+  around = rows && { chatId: id, rows };
+  stick = !at;
+  pendingJump = at;
   clearReply();
   open("chat");
   markRead();
 }
+
+// Opens a chat at a message search found. If it's older than the messages kept on the phone, fetch it with the ones around it.
+export async function openAt(m) {
+  if (S.messages.some((x) => x.id === m.id)) return openChat(m.chat_id, { at: m.id });
+  const tap = ++opening, from = S.screen;
+  const inChat = () => sb.from("messages").select("*").eq("chat_id", m.chat_id);
+  const [before, after] = await Promise.all([
+    inChat().lt("created_at", m.created_at).order("created_at", { ascending: false }).limit(15),
+    inChat().gte("created_at", m.created_at).order("created_at", { ascending: true }).limit(35),
+  ]);
+  if (tap !== opening || S.screen !== from) return; // slow reply: another tap, Cancel or back came first
+  if (before.error || after.error) return alertBox(before.error ?? after.error);
+  openChat(m.chat_id, { at: m.id, rows: [...before.data.reverse(), ...after.data] });
+}
+const msgById = (id) => S.messages.find((x) => x.id === id) ?? around?.rows.find((x) => x.id === id);
+const showingEarlier = () => around?.chatId === S.chatId;
+// Back to the newest messages: the pill, and sending anything.
+const toLatest = () => { around = null; stick = true; };
+$("#latest").onclick = () => { toLatest(); changed(); markRead(); };
 $("#back").onclick = () => history.back();
 
 // ---------- one chat ----------
@@ -58,7 +81,10 @@ export function renderChat() {
   if (soon) $("#countdown").textContent = countdownText(soon.title, soon.due_at);
 
   const top = box.scrollTop; // redraws on every change; keep the spot if you're scrolled up
-  const list = S.messages.filter((m) => m.chat_id === S.chatId);
+  const earlier = showingEarlier();
+  $("#latest").hidden = !earlier;
+  box.classList.toggle("earlier", earlier); // room under the last message for the pill
+  const list = earlier ? around.rows : S.messages.filter((m) => m.chat_id === S.chatId);
   box.replaceChildren();
   if (!list.length) box.append(el("p", "empty", `Say hi to ${chatName(c)}.`));
   let lastDay = "", lastSender = null;
@@ -69,13 +95,7 @@ export function renderChat() {
     lastSender = m.sender;
   }
   if (stick) scrollBottom(); else box.scrollTop = top;
-  if (pendingJump) { jumpTo(pendingJump); pendingJump = null; }
-}
-
-// Opens at a message instead of the bottom (used by search in Chat info).
-export function showMessage(id) {
-  pendingJump = id;
-  stick = false;
+  if (pendingJump) { jumpTo(pendingJump, "instant"); pendingJump = null; } // instant: the next redraw would stop a smooth scroll
 }
 
 function bubble(m, first) {
@@ -83,7 +103,7 @@ function bubble(m, first) {
   const b = el("div", `bubble ${mine ? "out" : "in"}${first ? " first" : ""}`);
   b.dataset.id = m.id;
   if (m.reply_to) {
-    const q = S.messages.find((x) => x.id === m.reply_to);
+    const q = msgById(m.reply_to);
     const quote = el("span", "quote");
     quote.append(el("b", null, q ? nameOf(q.sender) : ""), q ? snippet(q) : "Earlier message");
     quote.onclick = () => jumpTo(m.reply_to);
@@ -113,10 +133,10 @@ function bubble(m, first) {
   return b;
 }
 
-function jumpTo(id) {
+function jumpTo(id, behavior = "smooth") {
   const b = box.querySelector(`[data-id="${id}"]`);
   if (!b) return;
-  b.scrollIntoView({ block: "center", behavior: "smooth" });
+  b.scrollIntoView({ block: "center", behavior });
   b.classList.add("flash");
   setTimeout(() => b.classList.remove("flash"), 1000);
 }
@@ -129,7 +149,8 @@ export function addMsg(m) {
 }
 
 export async function markRead() {
-  if (S.screen !== "chat" || document.visibilityState !== "visible" || !unreadIn(S.chatId)) return;
+  // Not while older messages are showing: you haven't seen the new ones yet.
+  if (S.screen !== "chat" || document.visibilityState !== "visible" || showingEarlier() || !unreadIn(S.chatId)) return;
   await sb.from("messages").update({ read_at: new Date().toISOString() })
     .eq("chat_id", S.chatId).neq("sender", S.me).is("read_at", null);
 }
@@ -175,7 +196,7 @@ box.addEventListener("click", (e) => { if (swallowClick) { e.stopPropagation(); 
 
 let sheetMsg = null;
 function openSheet(id) {
-  sheetMsg = S.messages.find((m) => m.id === id);
+  sheetMsg = msgById(id);
   if (!sheetMsg) return;
   swallowClick = true;
   setTimeout(() => (swallowClick = false), 600);
@@ -208,7 +229,7 @@ async function react(id, emoji) {
 const text = $("#text");
 
 function startReply(id) {
-  const m = S.messages.find((x) => x.id === id);
+  const m = msgById(id);
   if (!m) return;
   replyTo = id;
   $("#reply-name").textContent = nameOf(m.sender);
@@ -236,7 +257,7 @@ $("#composer").onsubmit = async (e) => {
   const body = text.value.trim();
   if (!body) return;
   const reply = replyTo;
-  text.value = ""; text.oninput(); clearReply();
+  text.value = ""; text.oninput(); clearReply(); toLatest();
   const { data, error } = await sb.from("messages").insert({ chat_id: S.chatId, body, reply_to: reply }).select().single();
   if (error) { text.value = body; text.oninput(); if (reply) startReply(reply); return alertBox(error); }
   addMsg(data);
@@ -249,6 +270,7 @@ $("#file").onchange = async (e) => {
   const s = $("#chat-status"), cid = S.chatId;
   let reply = replyTo;
   clearReply();
+  toLatest();
   for (const [i, f] of files.entries()) {
     s.hidden = false;
     s.textContent = files.length > 1 ? `Sending photo ${i + 1} of ${files.length}…` : "Sending photo…";

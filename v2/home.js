@@ -1,7 +1,7 @@
 // Home: the greeting on top, and cards under the tiles for what needs you now. Tapping one opens it right here.
 import { dueText } from "./lib.js";
 import { GAMES } from "./games-lib.js";
-import { S, $, el, chatName, snippet, unreadIn, myTodos, myTurns, fillAvatar } from "./state.js";
+import { S, $, el, chatName, snippet, unreadIn, myTodos, myTurns, fillAvatar, tapRow as row } from "./state.js";
 import { openChat } from "./chat.js";
 import { openGame } from "./games.js";
 
@@ -26,16 +26,6 @@ function card(title, rows, seeAll) {
     c.append(b);
   }
   return c;
-}
-
-function row(title, sub, onclick, extra) {
-  const b = el("button", "row glance-row");
-  const main = el("span", "tmain");
-  main.append(el("span", "ttitle", title), el("span", "tsub", sub));
-  b.append(main);
-  if (extra) b.append(extra);
-  b.onclick = onclick;
-  return b;
 }
 
 // openTile opens a tile's screen the same way tapping the tile does (app.js).

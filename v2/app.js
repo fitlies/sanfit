@@ -5,8 +5,9 @@ import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
 import { renderDiary, enterDiary } from "./diary.js";
 import { renderGames, renderGame, gameChanged } from "./games.js";
-import { renderChatInfo } from "./search.js";
+import { renderChatInfo } from "./chat-info.js";
 import { renderHome, renderTop } from "./home.js";
+import { renderFind, clearFind } from "./find.js";
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
@@ -14,8 +15,9 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 // Everything happens on the home screen: the greeting and tiles stay on top, and the tapped tile's screen opens below.
 const TABS = [...document.querySelectorAll("#top [data-tab]")].map((b) => b.dataset.tab); // the tiles, plus your photo for Settings
 const BARE = ["login", "name-step"]; // the only screens without the tiles
-const LIVE = { home: () => renderHome(openTile), chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
-const ENTER = { settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (chat: back from Chat info)
+const LIVE = { home: () => renderHome(openTile), search: () => renderFind(openTile), chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
+const ENTER = { home: clearFind, settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (home: an empty search bar; chat: back from Chat info)
+const ROOTS = ["home", "search"]; // screens a tile opens on top of, so back returns to them
 const INSIDE = { chat: "chats", "chat-info": "chats", "diary-entry": "diary", game: "games" }; // screens inside a tab, and the tile that stays lit
 const BADGES = {                                                       // the number on each tile
   "chat-badge": () => S.chats.reduce((n, c) => n + unreadIn(c.id), 0),
@@ -27,6 +29,8 @@ function render() {
   for (const s of document.querySelectorAll("#app > section")) s.hidden = s.id !== S.screen; // every screen is a <section> in #app
   $("#top").hidden = BARE.includes(S.screen);
   $("#top").classList.toggle("slim", !!INSIDE[S.screen]); // inside a chat, entry or game: the tiles shrink to a strip
+  $("#top").classList.toggle("searching", S.screen === "search"); // searching: only the search bar stays on top
+  $("#find-cancel").hidden = S.screen !== "search";
   const lit = INSIDE[S.screen] ?? S.screen;
   document.querySelectorAll("#top [data-tab]").forEach((b) =>
     b.dataset.tab === lit ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
@@ -55,16 +59,21 @@ function go(screen) {
 // Back (Android, or a ‹ button) returns to the screen saved in that history entry; see open() in state.js.
 const depth = () => history.state?.depth ?? 0;
 window.onpopstate = (e) => go(e.state?.screen ?? "home");
+history.replaceState({ screen: "home", depth: 0 }, ""); // the app always starts on home; after a reload the entry would keep its old screen
 
-// A tile opened from home adds a history entry, so back closes it. Switching tiles swaps the entry instead.
-// Tapping the lit tile closes it: back to the first entry, which is home.
+// Back to home: the first history entry. Used by the lit tile and by Cancel in search.
+const closeTile = () => (depth() ? history.go(-depth()) : go("home"));
+// A tile (or search) opened from home or search adds a history entry, so back returns there.
+// Switching from one tile to another swaps the entry instead. Tapping the lit tile closes it.
 function openTile(tab) {
-  if (S.screen === tab) return depth() ? history.go(-depth()) : go("home");
-  if (S.screen === "home") history.pushState({ screen: tab, depth: depth() + 1 }, "");
+  if (S.screen === tab) return closeTile();
+  if (ROOTS.includes(S.screen)) history.pushState({ screen: tab, depth: depth() + 1 }, "");
   else history.replaceState({ screen: tab, depth: depth() }, "");
   go(tab);
 }
 $("#top").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) openTile(b.dataset.tab); };
+$("#find-q").onfocus = () => { if (S.screen !== "search") openTile("search"); };
+$("#find-cancel").onclick = closeTile;
 
 // ---------- sign-in ----------
 let signingUp = false;

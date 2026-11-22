@@ -81,3 +81,47 @@ export const nextCountdown = (todos, chatId, now = new Date()) =>
 const dueOrder = (t) => (t.due_at ? Date.parse(t.due_at) : Infinity);
 export const todosFor = (todos, me) =>
   todos.filter((t) => !t.done_at && t.assignee === me).sort((a, b) => (dueOrder(a) === dueOrder(b) ? 0 : dueOrder(a) - dueOrder(b)));
+
+// ---------- search (home search bar and Chat info) ----------
+// Capitals and spaces around the words typed don't matter.
+const has = (text, q) => (text ?? "").toLowerCase().includes(q.trim().toLowerCase());
+
+// People whose name contains q: items are { id, name }. Nothing for an empty search.
+export const matchNames = (items, q) => (q.trim() ? items.filter((i) => has(i.name, q)) : []);
+
+// To-dos whose title contains q: all open ones, then the `doneShown` most recently done.
+export function matchTodos(todos, q, doneShown = 5) {
+  if (!q.trim()) return { open: [], done: [] };
+  const hits = todos.filter((t) => has(t.title, q));
+  return {
+    open: hits.filter((t) => !t.done_at),
+    done: hits.filter((t) => t.done_at).sort((a, b) => b.done_at.localeCompare(a.done_at)).slice(0, doneShown),
+  };
+}
+
+// The words to search for: * is dropped, because the server reads it as "anything".
+export const cleanQuery = (q) => q.replace(/\*/g, "").trim();
+// What to send the server for "body contains q". % and _ are escaped so they match as typed.
+export const likePattern = (q) => `%${cleanQuery(q).replace(/[\\%_]/g, (ch) => "\\" + ch)}%`;
+
+// A long message cut to show the match: up to `before` characters ahead of it, "…" where text was cut.
+export function snippetAround(text, q, before = 40, length = 160) {
+  const at = text.toLowerCase().indexOf(q.trim().toLowerCase());
+  const start = at > before ? at - before : 0;
+  const cut = text.slice(start, start + length);
+  return (start ? "…" : "") + cut + (start + length < text.length ? "…" : "");
+}
+
+// The text cut into [part, isMatch] pieces, so the matches can be highlighted.
+export function splitMatches(text, q) {
+  const needle = q.trim().toLowerCase(), lower = text.toLowerCase(), out = [];
+  if (!needle) return [[text, false]];
+  let i = 0, j;
+  while ((j = lower.indexOf(needle, i)) >= 0) {
+    if (j > i) out.push([text.slice(i, j), false]);
+    out.push([text.slice(j, j + needle.length), true]);
+    i = j + needle.length;
+  }
+  if (i < text.length) out.push([text.slice(i), false]);
+  return out;
+}

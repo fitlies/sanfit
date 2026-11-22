@@ -1,7 +1,7 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { initial, fitSize, todosFor } from "./lib.js";
+import { initial, fitSize, todosFor, splitMatches, snippetAround, dayLabel, timeLabel } from "./lib.js";
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const $ = (s) => document.querySelector(s);
@@ -79,6 +79,33 @@ export const unreadIn = (cid) => S.messages.filter((m) => m.chat_id === cid && m
 // What's waiting for you: the tile badges and the home cards both count these.
 export const myTodos = () => todosFor(S.todos, S.me);
 export const myTurns = () => S.games.filter((g) => g.turn === S.me);
+
+// A tappable list row: a title (text, or pieces from marked()), an optional grey line under it, and something on the right.
+export function tapRow(title, sub, onclick, extra) {
+  const b = el("button", "row glance-row");
+  const main = el("span", "tmain"), t = el("span", "ttitle");
+  t.append(...[].concat(title));
+  main.append(t);
+  if (sub) main.append(el("span", "tsub", sub));
+  b.append(main);
+  if (extra) b.append(extra);
+  b.onclick = onclick;
+  return b;
+}
+// The text with each match of q wrapped in <mark>.
+export const marked = (text, q) => splitMatches(text, q).map(([part, hit]) => (hit ? el("mark", null, part) : part));
+// A message search result: who or which chat, when, and the text around the match. Home search and Chat info share it.
+// prefix: "You: " on your own messages in home search (Chat info already labels each one with who sent it).
+export function hitRow(m, q, label, onclick, prefix = "") {
+  const row = el("button", "hit");
+  const top = el("span", "hit-top");
+  top.append(el("b", null, label), el("span", null, `${dayLabel(m.created_at)}, ${timeLabel(m.created_at)}`));
+  const text = el("span", "hit-text");
+  text.append(prefix, ...marked(snippetAround(m.body, q), q));
+  row.append(top, text);
+  row.onclick = onclick;
+  return row;
+}
 
 function toast(text) {
   const s = $("#toast");

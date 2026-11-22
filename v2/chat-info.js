@@ -1,31 +1,34 @@
 // Chat info: tap a chat's name to open it. Search the chat, and see every photo sent in it.
 // Both ask the server, so they reach messages older than the ones kept on the phone.
-import { dayLabel, timeLabel } from "./lib.js";
-import { S, sb, $, el, changed, open, alertBox, chatName, nameOf, fillAvatar, photo, personByEmail, otherEmail } from "./state.js";
-import { showMessage } from "./chat.js";
+import { likePattern, cleanQuery } from "./lib.js";
+import { S, sb, $, el, changed, open, alertBox, chatName, nameOf, fillAvatar, photo, personByEmail, otherEmail, hitRow } from "./state.js";
+import { openAt } from "./chat.js";
 
 const PAGE = 30;
 let info = null; // this visit to Chat info: { chatId, found: { q, rows } | null, photos, done, loading }
 
-$("#chat-who").onclick = () => {
-  info = { chatId: S.chatId, found: null, photos: [], done: false, loading: false };
+// Also opened from home search ("Sandy's photos"), where the keyboard shouldn't pop up.
+export function openChatInfo(chatId, focus = true) {
+  S.chatId = chatId;
+  info = { chatId, found: null, photos: [], done: false, loading: false };
   morePhotos();
   open("chat-info");
   $("#search-q").value = "";
-  $("#search-q").focus();
-};
+  if (focus) $("#search-q").focus();
+}
+$("#chat-who").onclick = () => openChatInfo(S.chatId);
 $("#info-back").onclick = () => history.back();
 
 $("#search-form").onsubmit = async (e) => {
   e.preventDefault();
-  const q = $("#search-q").value.replace(/\*/g, "").trim(); // the server treats * as "anything"
+  const q = cleanQuery($("#search-q").value);
   if (!q) return;
   const visit = info; // results belong to this chat and this search, even if they arrive late
-  const { data, error } = await sb.from("messages").select("id, sender, body, created_at").eq("chat_id", visit.chatId)
-    .ilike("body", `%${q.replace(/[\\%_]/g, (ch) => "\\" + ch)}%`) // % and _ are wildcards; search for them as typed
+  const { data, error } = await sb.from("messages").select("id, chat_id, sender, body, created_at").eq("chat_id", visit.chatId)
+    .ilike("body", likePattern(q))
     .order("created_at", { ascending: false }).limit(50);
   if (error) return alertBox(error);
-  if (visit !== info || $("#search-q").value.replace(/\*/g, "").trim() !== q) return; // a newer search or chat took over
+  if (visit !== info || cleanQuery($("#search-q").value) !== q) return; // a newer search or chat took over
   visit.found = { q, rows: data };
   changed();
 };
@@ -48,18 +51,6 @@ async function morePhotos() {
 }
 $("#gallery-more").onclick = morePhotos;
 
-// The text with each match wrapped in <mark>.
-function marked(text, q) {
-  const out = [], lower = text.toLowerCase(), needle = q.toLowerCase();
-  let i = 0, j;
-  while ((j = lower.indexOf(needle, i)) >= 0) {
-    out.push(text.slice(i, j), el("mark", null, text.slice(j, j + q.length)));
-    i = j + q.length;
-  }
-  out.push(text.slice(i));
-  return out;
-}
-
 export function renderChatInfo() {
   const c = S.chats.find((x) => x.id === info?.chatId);
   if (!c) return;
@@ -79,16 +70,7 @@ export function renderChatInfo() {
   const box = $("#search-results"), found = info.found;
   box.hidden = !found;
   if (!found) return;
-  box.replaceChildren(...(found.rows.length ? found.rows.map((m) => {
-    const onPhone = S.messages.some((x) => x.id === m.id);
-    const row = el("button", "hit");
-    row.disabled = !onPhone;
-    const top = el("span", "hit-top");
-    top.append(el("b", null, nameOf(m.sender)), el("span", null, `${dayLabel(m.created_at)}, ${timeLabel(m.created_at)}`));
-    const text = el("span", "hit-text");
-    text.append(...marked(m.body.slice(0, 300), found.q));
-    row.append(top, text);
-    if (onPhone) row.onclick = () => { showMessage(m.id); history.back(); }; // back in the chat, scrolled to it
-    return row;
-  }) : [el("p", "none", `Nothing found for "${found.q}".`)]));
+  // Each result opens the chat at that message, older ones included (openAt fetches them).
+  box.replaceChildren(...(found.rows.length ? found.rows.map((m) => hitRow(m, found.q, nameOf(m.sender), () => openAt(m)))
+    : [el("p", "none", `Nothing found for "${found.q}".`)]));
 }
