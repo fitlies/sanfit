@@ -1,5 +1,5 @@
 // Entry point: sign-in, which screen is showing, live updates. Each tab lives in its own file.
-import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMessages, loadReactions, loadTodos } from "./state.js";
+import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, restoreCopy, forgetThisPhone } from "./state.js";
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
@@ -81,9 +81,10 @@ sb.auth.onAuthStateChange((event, session) => {
   if (session?.user && session.user.id !== S.me) {
     S.me = session.user.id;
     S.myEmail = session.user.email.toLowerCase();
+    if (restoreCopy()) render(); // show what's on this phone straight away, then catch up
     setTimeout(start); // outside the auth callback
   }
-  if (event === "SIGNED_OUT") location.reload(); // start clean, so nothing of the last person stays in memory
+  if (event === "SIGNED_OUT") forgetThisPhone().finally(() => location.reload()); // start clean: nothing of the last person stays on the phone
 });
 sb.auth.getSession().then(({ data }) => { if (!data.session) { S.screen = "login"; render(); } });
 
@@ -92,7 +93,7 @@ async function start() {
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
   await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos()]);
   subscribe();
-  go(TABS.includes(S.screen) ? S.screen : "chats");
+  if (!TABS.includes(S.screen) && !BACK[S.screen]) go("chats"); // coming from sign-in; otherwise stay where the saved copy let you go
 }
 
 $("#name-form").onsubmit = async (e) => {

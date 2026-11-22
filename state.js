@@ -23,9 +23,34 @@ export const S = {
   assignee: "",    // who a new to-do is for ("" = anyone)
 };
 
-let redraw = () => {};
+let redraw = () => {}, keepTimer = null;
 export const onChange = (fn) => (redraw = fn);
-export const changed = () => redraw();
+export const changed = () => { redraw(); clearTimeout(keepTimer); keepTimer = setTimeout(keepCopy, 2000); };
+
+// ---------- a copy on this phone, so the app opens with no connection and fetches only what's new ----------
+// Chats, messages, reactions, to-dos and names. The diary is not kept here: it needs a connection.
+const KEPT = ["people", "chats", "messages", "reactions", "todos", "todoChat"];
+const copyKey = () => `saved:${S.me}`;
+function keepCopy() {
+  if (!S.me || !S.messages.length) return;
+  try { localStorage.setItem(copyKey(), JSON.stringify(Object.fromEntries(KEPT.map((k) => [k, S[k]])))); } catch { /* storage full or blocked: next open just loads everything */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepCopy(); }); // closing the app doesn't wait
+// Fills S from the copy on this phone. Returns true if there was one.
+export function restoreCopy() {
+  try {
+    const copy = JSON.parse(localStorage.getItem(copyKey()));
+    if (!copy) return false;
+    Object.assign(S, copy);
+    return true;
+  } catch { return false; }
+}
+// On sign-out: remove every saved copy and cached photo from this phone.
+export async function forgetThisPhone() {
+  clearTimeout(keepTimer);
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("saved:")) localStorage.removeItem(k); } catch { /* nothing stored */ }
+  await window.caches?.delete(PHOTO_CACHE).catch(() => {});
+}
 
 // ---------- who's who ----------
 export const otherEmail = (c) => c.members.find((e) => e !== S.myEmail);
@@ -35,25 +60,42 @@ export const nameOf = (id) => (id === S.me ? "You" : S.people[id]?.name ?? "Some
 export const snippet = (m) => (m?.body ? m.body.slice(0, 80) : m?.image_path ? "📷 Photo" : "");
 export const unreadIn = (cid) => S.messages.filter((m) => m.chat_id === cid && m.sender !== S.me && !m.read_at).length;
 
-export function alertBox(error) {
-  console.error(error);
+function toast(text) {
   const s = $("#toast");
   s.hidden = false;
-  s.textContent = `Didn't go through: ${error.message}. Check your connection and try again.`;
+  s.textContent = text;
   clearTimeout(s.t);
   s.t = setTimeout(() => (s.hidden = true), 6000);
 }
+export function alertBox(error) {
+  console.error(error);
+  toast(`Didn't go through: ${error.message}. Check your connection and try again.`);
+}
 
-// Signed links to private pictures (chat photos, profile photos), cached for the session.
-// shortcut: links last 24h; reopen the app if a picture stops loading after a day open.
+// Private pictures (chat, profile and diary photos). Each one downloads once, then opens from this phone.
+// Every upload gets a new file name, so a saved copy never goes out of date.
+// shortcut: the photo store only grows (until sign-out); prune old photos if phones start running low on space.
+const PHOTO_CACHE = "sanfit-photos";
 const urls = {};
-export async function fileUrl(bucket, path) {
+export function fileUrl(bucket, path) {
   const key = `${bucket}/${path}`;
-  if (!urls[key]) {
-    const { data } = await sb.storage.from(bucket).createSignedUrl(path, 86400);
-    urls[key] = data?.signedUrl;
-  }
+  urls[key] ??= photoFromPhoneOrDownload(bucket, path).then((u) => {
+    if (!u) delete urls[key]; // try again next time
+    return u;
+  });
   return urls[key];
+}
+async function photoFromPhoneOrDownload(bucket, path) {
+  const name = new URL(`photo/${bucket}/${path}`, location.href); // a label in the store, never fetched
+  const store = await window.caches?.open(PHOTO_CACHE).catch(() => null);
+  let res = await store?.match(name);
+  if (!res) {
+    const { data } = await sb.storage.from(bucket).createSignedUrl(path, 300);
+    res = data && (await fetch(data.signedUrl).catch(() => null));
+    if (!res?.ok) return null;
+    await store?.put(name, res.clone()).catch(() => {});
+  }
+  return URL.createObjectURL(await res.blob());
 }
 
 // Fills an avatar circle with someone's profile photo, or their initial while it loads or if they have none.
@@ -92,8 +134,10 @@ export async function save(query) {
 // ---------- loading ----------
 async function fetchRows(query) {
   const { data, error } = await query;
-  if (error) { alertBox(error); return null; }
-  return data;
+  if (!error) return data;
+  if (navigator.onLine) alertBox(error);
+  else toast("You're offline. Showing what's saved on this phone.");
+  return null;
 }
 export async function loadPeople() {
   const data = await fetchRows(sb.from("profiles").select("*"));
@@ -110,11 +154,28 @@ export async function loadChats() {
   S.todoChat ??= S.chats[0]?.id ?? null;
   changed();
 }
+// shortcut: the latest 500 messages across all chats are kept; add "load earlier" when history gets long.
 export async function loadMessages() {
-  // shortcut: the latest 500 messages across all chats load; add "load earlier" when history gets long.
-  const data = await fetchRows(sb.from("messages").select("*").order("created_at", { ascending: false }).limit(500));
-  if (!data) return;
-  S.messages = data.reverse();
+  const last = S.messages.at(-1);
+  if (!last) {
+    const data = await fetchRows(sb.from("messages").select("*").order("created_at", { ascending: false }).limit(500));
+    if (!data) return;
+    S.messages = data.reverse();
+    return changed();
+  }
+  // Only what's new: messages from a minute before the last one we have (in case two landed together),
+  // and read ticks on your own messages that were still unread.
+  const since = new Date(Date.parse(last.created_at) - 60000).toISOString();
+  const unread = S.messages.filter((m) => m.sender === S.me && !m.read_at).slice(-200).map((m) => m.id);
+  const [fresh, reads] = await Promise.all([
+    fetchRows(sb.from("messages").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(500)), // the newest 500, if away long
+    unread.length ? fetchRows(sb.from("messages").select("id, read_at").in("id", unread).not("read_at", "is", null)) : [],
+  ]);
+  if (!fresh || !reads) return;
+  const byId = new Map(S.messages.map((m) => [m.id, m]));
+  for (const m of fresh) byId.set(m.id, m);
+  for (const r of reads) if (byId.has(r.id)) byId.get(r.id).read_at = r.read_at;
+  S.messages = [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)).slice(-500);
   changed();
 }
 export async function loadReactions() {
