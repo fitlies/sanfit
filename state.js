@@ -17,8 +17,8 @@ export const TICK = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" 
 export const S = {
   me: null, myEmail: "",
   people: {}, chats: [], messages: [], reactions: [], todos: [], games: [],
-  screen: "chats", // login | name-step | chats | chat | todos | settings
-  chatId: null,    // the open chat, when screen is "chat"
+  screen: "chats", // a <section> id in index.html: login, name-step, the five tabs, or chat, chat-info, diary-entry, game
+  chatId: null,    // the open chat, on the chat and chat-info screens
   gameId: null,    // the open game, when screen is "game" ("phone" for a game against the phone)
   todoChat: null,  // whose to-do list is showing
   assignee: "",    // who a new to-do is for ("" = anyone)
@@ -27,6 +27,17 @@ export const S = {
 let redraw = () => {}, keepTimer = null;
 export const onChange = (fn) => (redraw = fn);
 export const changed = () => { redraw(); clearTimeout(keepTimer); keepTimer = setTimeout(keepCopy, 2000); };
+
+// Opens a screen inside a tab (a chat, Chat info, a diary entry, a game). The back button returns via BACK in app.js.
+export function open(screen) {
+  S.screen = screen;
+  history.pushState({ screen }, "");
+  changed();
+}
+
+// Small settings kept on this phone (theme, diary PIN, ...). Private browsing can block storage, so never throw.
+export const pref = (key, fallback = null) => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } };
+export const setPref = (key, value) => { try { value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch { /* this visit only */ } };
 
 // ---------- a copy on this phone, so the app opens with no connection and fetches only what's new ----------
 // Chats, messages, reactions, to-dos, games and names. The diary is not kept here: it needs a connection.
@@ -101,6 +112,23 @@ async function photoFromPhoneOrDownload(bucket, path) {
   return URL.createObjectURL(await res.blob());
 }
 
+// A private photo as an <img>; tap it to see it full screen.
+export function photo(bucket, path, alt = "") {
+  const img = el("img");
+  img.alt = alt;
+  fileUrl(bucket, path).then((u) => u && (img.src = u));
+  img.onclick = () => { if (img.src) { $("#viewer img").src = img.src; $("#viewer").hidden = false; } };
+  return img;
+}
+$("#viewer").onclick = () => ($("#viewer").hidden = true);
+
+// Shrinks a picked photo and uploads it under folder/. Returns its path, or null (the error is shown).
+export async function uploadPhoto(bucket, folder, file, max) {
+  const blob = await shrink(file, max); // keeps photos quick to load and the free storage lasting
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  return (await save(sb.storage.from(bucket).upload(path, blob, { contentType: blob.type || "image/jpeg" }))) ? path : null;
+}
+
 // Fills an avatar circle with someone's profile photo, or their initial while it loads or if they have none.
 export function fillAvatar(box, name, path) {
   box.textContent = initial(name);
@@ -115,7 +143,7 @@ export function fillAvatar(box, name, path) {
 }
 
 // Shrinks a picked photo to a JPEG at most `max` px on its longest side. Falls back to the original.
-export async function shrink(file, max) {
+async function shrink(file, max) {
   try {
     const bmp = await createImageBitmap(file);
     const [w, h] = fitSize(bmp.width, bmp.height, max);

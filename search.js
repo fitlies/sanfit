@@ -1,43 +1,49 @@
 // Chat info: tap a chat's name to open it. Search the chat, and see every photo sent in it.
 // Both ask the server, so they reach messages older than the ones kept on the phone.
 import { dayLabel, timeLabel } from "./lib.js";
-import { S, sb, $, el, changed, alertBox, chatName, nameOf, fillAvatar, fileUrl, personByEmail, otherEmail } from "./state.js";
+import { S, sb, $, el, changed, open, alertBox, chatName, nameOf, fillAvatar, photo, personByEmail, otherEmail } from "./state.js";
 import { showMessage } from "./chat.js";
 
-let found = null;   // the last search: { chatId, q, rows }
-let gallery = null; // this chat's photos so far: { chatId, rows, done }
 const PAGE = 30;
+let info = null; // this visit to Chat info: { chatId, found: { q, rows } | null, photos, done, loading }
 
 $("#chat-who").onclick = () => {
-  gallery = { chatId: S.chatId, rows: [], done: false };
+  info = { chatId: S.chatId, found: null, photos: [], done: false, loading: false };
   morePhotos();
-  S.screen = "chat-info";
-  history.pushState({ info: S.chatId }, ""); // so the back button returns to the chat
-  changed();
+  open("chat-info");
+  $("#search-q").value = "";
   $("#search-q").focus();
 };
 $("#info-back").onclick = () => history.back();
 
 $("#search-form").onsubmit = async (e) => {
   e.preventDefault();
-  const q = $("#search-q").value.trim();
+  const q = $("#search-q").value.replace(/\*/g, "").trim(); // the server treats * as "anything"
   if (!q) return;
-  const { data, error } = await sb.from("messages").select("id, sender, body, created_at").eq("chat_id", S.chatId)
+  const visit = info; // results belong to this chat and this search, even if they arrive late
+  const { data, error } = await sb.from("messages").select("id, sender, body, created_at").eq("chat_id", visit.chatId)
     .ilike("body", `%${q.replace(/[\\%_]/g, (ch) => "\\" + ch)}%`) // % and _ are wildcards; search for them as typed
     .order("created_at", { ascending: false }).limit(50);
   if (error) return alertBox(error);
-  found = { chatId: S.chatId, q, rows: data };
+  if (visit !== info || $("#search-q").value.replace(/\*/g, "").trim() !== q) return; // a newer search or chat took over
+  visit.found = { q, rows: data };
   changed();
 };
 
-// The next page of photos, newest first. Each picture downloads once, then opens from the phone (fileUrl).
+// The next page of photos, newest first: the ones sent before the oldest shown, so a photo arriving meanwhile
+// can't shift the pages. Each picture downloads once, then opens from the phone.
 async function morePhotos() {
-  const g = gallery;
-  const { data, error } = await sb.from("messages").select("id, image_path").eq("chat_id", g.chatId).not("image_path", "is", null)
-    .order("created_at", { ascending: false }).range(g.rows.length, g.rows.length + PAGE - 1);
+  const visit = info;
+  if (visit.loading || visit.done) return;
+  visit.loading = true;
+  const last = visit.photos.at(-1);
+  let query = sb.from("messages").select("id, image_path, created_at").eq("chat_id", visit.chatId).not("image_path", "is", null);
+  if (last) query = query.lt("created_at", last.created_at);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(PAGE);
+  visit.loading = false;
   if (error) return alertBox(error);
-  g.rows.push(...data);
-  g.done = data.length < PAGE;
+  visit.photos.push(...data);
+  visit.done = data.length < PAGE;
   changed();
 }
 $("#gallery-more").onclick = morePhotos;
@@ -55,26 +61,24 @@ function marked(text, q) {
 }
 
 export function renderChatInfo() {
-  const c = S.chats.find((x) => x.id === S.chatId);
+  const c = S.chats.find((x) => x.id === info?.chatId);
   if (!c) return;
   fillAvatar($("#info-avatar"), chatName(c), personByEmail(otherEmail(c))?.avatar_path);
   $("#info-name").textContent = chatName(c);
 
-  const g = gallery?.chatId === c.id ? gallery : null;
-  $("#gallery").replaceChildren(...(g?.rows.length ? g.rows.map((m) => {
+  $("#gallery").replaceChildren(...(info.photos.length ? info.photos.map((m) => {
     const tile = el("button");
     tile.setAttribute("aria-label", "Open photo");
-    const img = el("img");
-    img.alt = "";
-    fileUrl("photos", m.image_path).then((u) => u && (img.src = u));
-    tile.onclick = () => { if (img.src) { $("#viewer img").src = img.src; $("#viewer").hidden = false; } };
+    const img = photo("photos", m.image_path);
+    tile.onclick = (e) => { if (e.target !== img) img.click(); }; // the button, for keyboards
     tile.append(img);
     return tile;
-  }) : g?.done ? [el("p", "none", "No photos in this chat yet.")] : []));
-  $("#gallery-more").hidden = !g || g.done;
-  const box = $("#search-results");
-  box.hidden = found?.chatId !== c.id;
-  if (box.hidden) return;
+  }) : info.done ? [el("p", "none", "No photos in this chat yet.")] : []));
+  $("#gallery-more").hidden = info.done;
+
+  const box = $("#search-results"), found = info.found;
+  box.hidden = !found;
+  if (!found) return;
   box.replaceChildren(...(found.rows.length ? found.rows.map((m) => {
     const onPhone = S.messages.some((x) => x.id === m.id);
     const row = el("button", "hit");

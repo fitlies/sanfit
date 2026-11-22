@@ -1,5 +1,5 @@
 // To-dos tab: one list per chat, with who it's for and an optional due time.
-import { dayLabel, timeLabel, dueText } from "./lib.js";
+import { dueText, whenLabel, weekday } from "./lib.js";
 import { S, sb, $, el, TICK, changed, save, chatName, nameOf, personByEmail, otherEmail, loadTodos } from "./state.js";
 
 function radios(container, name, opts, cur, onPick) {
@@ -11,8 +11,6 @@ function radios(container, name, opts, cur, onPick) {
     return l;
   }));
 }
-
-const whenLabel = (d) => `${dayLabel(d).replace(/^(Today|Yesterday)$/, (w) => w.toLowerCase())}, ${timeLabel(d)}`;
 
 export function renderTodos() {
   const pick = $("#todo-chat");
@@ -48,7 +46,7 @@ $("#todo-form").onsubmit = async (e) => {
 $("#todo-due").oninput = (e) => { $("#due-extras").hidden = !e.target.value; }; // repeats and countdowns need a date
 
 // "every Monday" for a weekly to-do, from its due date.
-const repeats = (t) => (t.repeat === "week" ? `every ${new Date(t.due_at).toLocaleDateString("en-SG", { weekday: "long" })}` : `every ${t.repeat}`);
+const repeats = (t) => (t.repeat === "week" ? `every ${weekday(t.due_at, "long")}` : `every ${t.repeat}`);
 
 function todoRow(t) {
   const r = el("div", "row" + (t.done_at ? " done" : ""));

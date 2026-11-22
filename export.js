@@ -1,5 +1,5 @@
 // "Download everything": your chats, to-dos, games and diary in one file on this phone.
-// Photos are listed by name only. The file isn't locked, so Settings warns before saving it.
+// Photos are listed by name only. The file isn't locked, so it asks first.
 import { localDate } from "./lib.js";
 import { S, sb, $, alertBox } from "./state.js";
 

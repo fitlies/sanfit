@@ -1,6 +1,6 @@
 // Chats tab: the chat list, one open chat, replies, reactions, sending text and photos.
-import { dayLabel, timeLabel, daysUntil, countdownText } from "./lib.js";
-import { S, sb, $, el, TICK, changed, save, alertBox, fileUrl, fillAvatar, shrink, chatName, nameOf, snippet, unreadIn, personByEmail, otherEmail, loadReactions } from "./state.js";
+import { dayLabel, timeLabel, shortWhen, countdownText, nextCountdown } from "./lib.js";
+import { S, sb, $, el, TICK, changed, open, save, alertBox, photo, uploadPhoto, fillAvatar, chatName, nameOf, snippet, unreadIn, personByEmail, otherEmail, loadReactions } from "./state.js";
 
 const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 6l3 3 6-7M7 8l1 1 6-7"/></svg>';
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -8,7 +8,6 @@ let replyTo = null, stick = true, pendingJump = null;
 
 const other = (c) => personByEmail(otherEmail(c)); // undefined until they join
 const joined = (c) => !!other(c);
-const shortWhen = (d) => (dayLabel(d) === "Today" ? timeLabel(d) : dayLabel(d));
 
 // ---------- chat list ----------
 export function renderChatList() {
@@ -34,11 +33,9 @@ export function renderChatList() {
 
 export function openChat(id) {
   S.chatId = id;
-  S.screen = "chat";
   stick = true;
   clearReply();
-  history.pushState({ chat: id }, ""); // so Android's back button returns to the list
-  changed();
+  open("chat");
   markRead();
 }
 $("#back").onclick = () => history.back();
@@ -56,9 +53,7 @@ export function renderChat() {
   fillAvatar($("#partner-avatar"), chatName(c), other(c)?.avatar_path);
   $("#partner-name").textContent = chatName(c);
   $("#partner-sub").textContent = joined(c) ? "" : "They'll see your messages once they join.";
-  // The next date you marked "Count down in chat" on a to-do; gone once the day has passed.
-  const soon = S.todos.filter((t) => t.chat_id === c.id && t.countdown && !t.done_at && t.due_at && daysUntil(t.due_at) >= 0)
-    .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))[0];
+  const soon = nextCountdown(S.todos, c.id);
   $("#countdown").hidden = !soon;
   if (soon) $("#countdown").textContent = countdownText(soon.title, soon.due_at);
 
@@ -97,11 +92,8 @@ function bubble(m, first) {
   if (m.image_path) {
     b.classList.add("photo");
     if (!m.body) b.classList.add("notext");
-    const img = el("img");
-    img.alt = "Photo";
+    const img = photo("photos", m.image_path, "Photo");
     img.onload = () => stick && scrollBottom();
-    img.onclick = () => { $("#viewer img").src = img.src; $("#viewer").hidden = false; };
-    fileUrl("photos", m.image_path).then((u) => u && (img.src = u));
     b.append(img);
   }
   if (m.body) b.append(el("span", "text", m.body));
@@ -128,8 +120,6 @@ function jumpTo(id) {
   b.classList.add("flash");
   setTimeout(() => b.classList.remove("flash"), 1000);
 }
-
-$("#viewer").onclick = () => ($("#viewer").hidden = true);
 
 export function addMsg(m) {
   if (S.messages.some((x) => x.id === m.id)) return;
@@ -262,9 +252,8 @@ $("#file").onchange = async (e) => {
   for (const [i, f] of files.entries()) {
     s.hidden = false;
     s.textContent = files.length > 1 ? `Sending photo ${i + 1} of ${files.length}…` : "Sending photo…";
-    const blob = await shrink(f, 1600); // keeps photos quick to load and the free storage lasting
-    const path = `${cid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    if (!(await save(sb.storage.from("photos").upload(path, blob, { contentType: blob.type || "image/jpeg" })))) continue;
+    const path = await uploadPhoto("photos", cid, f, 1600);
+    if (!path) continue;
     const { data, error } = await sb.from("messages").insert({ chat_id: cid, image_path: path, reply_to: reply }).select().single();
     if (error) { alertBox(error); continue; }
     reply = null; // only the first photo replies

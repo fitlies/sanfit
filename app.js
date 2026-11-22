@@ -12,7 +12,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 // ---------- one redraw for every change ----------
 const TABS = ["chats", "todos", "diary", "games", "settings"];
 const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
-const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
+const ENTER = { settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (chat: back from Chat info)
 const BACK = { chat: "chats", "chat-info": "chat", "diary-entry": "diary", game: "games" }; // where the back button goes
 const BADGES = {                                                       // the number on each tab
   "chat-badge": () => S.chats.reduce((n, c) => n + unreadIn(c.id), 0),
@@ -100,7 +100,7 @@ async function start() {
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
   await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos(), loadGames()]);
   subscribe();
-  if (!TABS.includes(S.screen) && !BACK[S.screen]) go("chats"); // coming from sign-in; otherwise stay where the saved copy let you go
+  if (!TABS.includes(S.screen) && !BACK[S.screen]) go("chats"); // coming from sign-in or the name step; otherwise stay where you are
 }
 
 $("#name-form").onsubmit = async (e) => {

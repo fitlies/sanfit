@@ -1,4 +1,4 @@
-// Diary rules with no screen code, so they're tested: moods, search, "On this day".
+// Diary rules with no screen code, so they're tested: moods, search, "On this day", Recently deleted.
 export const MOODS = [["😄", "Great"], ["🙂", "Good"], ["😐", "Okay"], ["😔", "Sad"], ["😠", "Angry"], ["😴", "Tired"]];
 
 // Entries whose title or text contains the words typed, ignoring capitals.

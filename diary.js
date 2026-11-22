@@ -1,9 +1,10 @@
 // Diary tab: a private diary for each person. Entries by date with a mood and photos,
 // a mood calendar, a PIN lock on this phone, and page themes. Only the writer can read entries.
 // Signing out reloads the app, so everything here belongs to the person signed in.
-import { localDate, monthGrid } from "./lib.js";
+import { localDate, monthGrid, days, fromLocalDate, monthLabel, weekday } from "./lib.js";
 import { MOODS, searchEntries, onThisDay, moodSummary, binDaysLeft, BIN_DAYS } from "./diary-lib.js";
-import { S, sb, $, el, changed, save, alertBox, fileUrl, shrink } from "./state.js";
+import { S, sb, $, el, changed, open, save, alertBox, photo, uploadPhoto, pref, setPref } from "./state.js";
+
 const THEMES = [["plain", "Plain"], ["paper", "Paper"], ["rose", "Rose"], ["mint", "Mint"], ["sky", "Sky"], ["night", "Night"]];
 
 let entries = [];          // your own entries, newest first
@@ -26,10 +27,10 @@ async function loadEntries() {
   // Gone for good after 30 days. Done here, on the phone, because the database can't remove the photo files.
   for (const e of data.filter((x) => x.deleted_at && !binDaysLeft(x.deleted_at))) deleteForGood(e);
 }
+// Photos first: if removing them fails, the entry stays so the next try still knows which files to remove.
 async function deleteForGood(e) {
-  if (!(await save(sb.from("diary_entries").delete().eq("id", e.id)))) return false;
-  if (e.photos.length) sb.storage.from("diary").remove(e.photos);
-  return true;
+  if (e.photos.length && !(await save(sb.storage.from("diary").remove(e.photos)))) return false;
+  return save(sb.from("diary_entries").delete().eq("id", e.id));
 }
 
 // Called each time you open the Diary tab.
@@ -49,7 +50,7 @@ const STEPS = {
 };
 let lock = "unlock", lockError = "", firstPin = "";
 const pinKey = () => `diaryPin:${S.me}`;
-const storedPin = () => { try { return localStorage.getItem(pinKey()); } catch { return null; } };
+const storedPin = () => pref(pinKey());
 async function hashPin(pin) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${S.me}:${pin}`));
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -72,7 +73,7 @@ $("#pin").oninput = async (e) => {
   if (lock === "create") { firstPin = pin; return setLock("confirm"); }
   if (lock === "confirm") {
     if (pin !== firstPin) return setLock("create", "Those didn't match. Start again.");
-    try { localStorage.setItem(pinKey(), await hashPin(pin)); } catch { /* storage blocked: you'll be asked to create one next time */ }
+    setPref(pinKey(), await hashPin(pin)); // if storage is blocked, you'll be asked to create one next time
     return setLock("open");
   }
   if ((await hashPin(pin)) === storedPin()) return setLock("open");
@@ -84,7 +85,7 @@ $("#pin-pass").onsubmit = async (e) => {
   const { error } = await sb.auth.signInWithPassword({ email: S.myEmail, password: $("#pin-password").value });
   $("#pin-password").value = "";
   if (error) return setLock("forgot", "That password didn't work.");
-  try { localStorage.removeItem(pinKey()); } catch { /* nothing stored */ }
+  setPref(pinKey(), null);
   setLock("create");
 };
 
@@ -99,7 +100,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---------- page themes ----------
-const currentTheme = () => { try { return localStorage.getItem("diaryTheme") || "plain"; } catch { return "plain"; } };
+const currentTheme = () => pref("diaryTheme", "plain");
 document.body.dataset.dtheme = currentTheme();
 $("#diary-theme").onclick = () => {
   const row = $("#theme-row");
@@ -108,7 +109,7 @@ $("#diary-theme").onclick = () => {
     const b = el("button", `swatch sw-${key}`, label);
     b.setAttribute("aria-pressed", key === currentTheme());
     b.onclick = () => {
-      try { localStorage.setItem("diaryTheme", key); } catch { /* this visit only */ }
+      setPref("diaryTheme", key);
       document.body.dataset.dtheme = key;
       row.hidden = true;
     };
@@ -137,7 +138,8 @@ export function renderDiary() {
   $("#diary-bin").hidden = view !== "bin";
   ({ list: renderList, calendar: renderCalendar, bin: renderBin })[view]();
 }
-$("#diary-view").onclick = () => { view = view === "calendar" ? "list" : "calendar"; changed(); };
+const setView = (v) => { view = v; changed(); };
+$("#diary-view").onclick = () => setView(view === "calendar" ? "list" : "calendar");
 $("#diary-find").onclick = () => {
   const box = $("#diary-search");
   box.hidden = !box.hidden;
@@ -148,56 +150,55 @@ $("#diary-find").onclick = () => {
 };
 $("#diary-q").oninput = (e) => { query = e.target.value; changed(); };
 
-// "On this day" can bring back a hard day, so Settings can turn it off (on this phone).
-export const showOnThisDay = () => { try { return localStorage.getItem("onThisDay") !== "off"; } catch { return true; } };
 $("#diary-new").onclick = () => openEntry(null);
 
+// One entry in the list. "On this day" cards carry a heading instead of the date box.
+function entryCard(e, onThisDayLabel) {
+  const card = el("button", "dcard" + (onThisDayLabel ? " otd" : ""));
+  card.onclick = () => openEntry(e);
+  const main = el("div", "dmain");
+  if (onThisDayLabel) main.append(el("span", "dmonth", onThisDayLabel));
+  else {
+    const d = fromLocalDate(e.entry_date), date = el("div", "ddate");
+    date.append(el("b", null, d.getDate()), el("span", null, weekday(d)));
+    card.append(date);
+  }
+  main.append(el("span", "dtitle", e.title || "Untitled"), el("span", "dsnip", (e.body ?? "").slice(0, 140)));
+  const side = el("div", "dside");
+  if (e.mood) side.append(el("span", "dmood", e.mood));
+  if (e.photos.length) side.append(el("span", "dcount", `📷 ${e.photos.length}`));
+  card.append(main, side);
+  return card;
+}
+
 function renderList() {
-  const binLink = binned.length && !query.trim() ? [Object.assign(el("button", "bin-link", `Recently deleted (${binned.length})`), { onclick: () => { view = "bin"; changed(); } })] : [];
+  const searching = !!query.trim();
+  const binLink = binned.length && !searching ? [Object.assign(el("button", "bin-link", `Recently deleted (${binned.length})`), { onclick: () => setView("bin") })] : [];
   if (!entries.length) return $("#diary-list").replaceChildren(el("p", "none", "No entries yet. Tap + to write your first one."), ...binLink);
   const shown = searchEntries(entries, query);
   if (!shown.length) return $("#diary-list").replaceChildren(el("p", "none", `Nothing found for "${query.trim()}".`));
-  const out = query.trim() || !showOnThisDay() ? [] : onThisDay(entries, localDate()).slice(0, 3).map((e) => {
-    const card = el("button", "dcard otd");
-    card.onclick = () => openEntry(e);
-    const main = el("div", "dmain");
-    main.append(el("span", "dmonth", `On this day in ${e.entry_date.slice(0, 4)}`), el("span", "dtitle", e.title || "Untitled"),
-      el("span", "dsnip", (e.body ?? "").slice(0, 140)));
-    card.append(main);
-    if (e.mood) card.append(el("span", "dmood", e.mood));
-    return card;
-  });
+  // "On this day" can bring back a hard day, so Settings can turn it off (on this phone).
+  const out = searching || pref("onThisDay") === "off" ? []
+    : onThisDay(entries, localDate()).slice(0, 3).map((e) => entryCard(e, `On this day in ${e.entry_date.slice(0, 4)}`));
   let lastMonth = "";
   for (const e of shown) {
-    const d = new Date(`${e.entry_date}T00:00`);
-    const m = d.toLocaleDateString("en-SG", { month: "long", year: "numeric" });
+    const m = monthLabel(fromLocalDate(e.entry_date));
     if (m !== lastMonth) { out.push(el("h2", "dmonth", m)); lastMonth = m; }
-    const card = el("button", "dcard");
-    card.onclick = () => openEntry(e);
-    const date = el("div", "ddate");
-    date.append(el("b", null, d.getDate()), el("span", null, d.toLocaleDateString("en-SG", { weekday: "short" })));
-    const main = el("div", "dmain");
-    main.append(el("span", "dtitle", e.title || "Untitled"), el("span", "dsnip", (e.body ?? "").slice(0, 140)));
-    card.append(date, main);
-    const side = el("div", "dside");
-    if (e.mood) side.append(el("span", "dmood", e.mood));
-    if (e.photos.length) side.append(el("span", "dcount", `📷 ${e.photos.length}`));
-    card.append(side);
-    out.push(card);
+    out.push(entryCard(e));
   }
   $("#diary-list").replaceChildren(...out, ...binLink);
 }
 
 // ---------- Recently deleted ----------
 function renderBin() {
-  const back = Object.assign(el("button", "bin-link", "‹ Back to diary"), { onclick: () => { view = "list"; changed(); } });
+  const back = Object.assign(el("button", "bin-link", "‹ Back to diary"), { onclick: () => setView("list") });
   $("#diary-bin").replaceChildren(back, el("p", "bin-note", `Entries here are deleted for good after ${BIN_DAYS} days.`),
     ...(binned.length ? binned.map((e) => {
       const card = el("div", "dcard bin");
       const main = el("div", "dmain");
       const left = binDaysLeft(e.deleted_at);
       main.append(el("span", "dtitle", e.title || "Untitled"),
-        el("span", "dsnip", `${whenDate(e.entry_date)}. Deletes in ${left} ${left === 1 ? "day" : "days"}`));
+        el("span", "dsnip", `${fromLocalDate(e.entry_date).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" })}. Deletes in ${days(left)}`));
       const restore = Object.assign(el("button", "btn plain", "Restore"), {
         onclick: async () => { if (await save(sb.from("diary_entries").update({ deleted_at: null }).eq("id", e.id))) loadEntries(); },
       });
@@ -208,11 +209,10 @@ function renderBin() {
       return card;
     }) : [el("p", "none", "Nothing here.")]));
 }
-const whenDate = (iso) => new Date(`${iso}T00:00`).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
 function renderCalendar() {
   const y = month.getFullYear(), m = month.getMonth();
-  $("#cal-title").textContent = month.toLocaleDateString("en-SG", { month: "long", year: "numeric" });
+  $("#cal-title").textContent = monthLabel(month);
   const byDay = {};
   for (const e of entries) (byDay[e.entry_date] ??= []).push(e); // newest first, so [0] is the day's latest
   const today = localDate();
@@ -238,14 +238,12 @@ $("#cal-prev").onclick = () => { month = new Date(month.getFullYear(), month.get
 $("#cal-next").onclick = () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); changed(); };
 
 // ---------- writing an entry (saves as you type) ----------
-// status: new (not in the database yet) | saved | deleted
+// status: new (not in the database yet) | saved. Deleting is just setting deleted_at and saving.
 function openEntry(e, date) {
   draft = e
     ? { ...e, title: e.title ?? "", body: e.body ?? "", photos: [...e.photos], status: "saved", dirty: false }
-    : { id: crypto.randomUUID(), entry_date: date ?? localDate(), mood: null, title: "", body: "", photos: [], status: "new", dirty: false };
-  S.screen = "diary-entry";
-  history.pushState({ diary: true }, ""); // so the back button returns to the diary
-  changed();
+    : { id: crypto.randomUUID(), entry_date: date ?? localDate(), mood: null, title: "", body: "", photos: [], deleted_at: null, status: "new", dirty: false };
+  open("diary-entry");
   $("#entry-date").value = draft.entry_date;
   $("#entry-title").value = draft.title;
   $("#entry-body").value = draft.body;
@@ -266,8 +264,9 @@ function flushDraft(d = draft) {
   return (saving = saving.then(() => saveDraft(d)));
 }
 async function saveDraft(d) {
-  if (!d?.dirty || d.status === "deleted") return true;
-  const row = { id: d.id, entry_date: d.entry_date, mood: d.mood, title: d.title.trim() || null, body: d.body.trim() || null, photos: d.photos };
+  if (!d?.dirty) return true;
+  const row = { id: d.id, entry_date: d.entry_date, mood: d.mood, title: d.title.trim() || null, body: d.body.trim() || null,
+    photos: d.photos, deleted_at: d.deleted_at ?? null };
   if (d.status === "new" && !row.title && !row.body && !row.mood && !row.photos.length) return true; // nothing written yet
   d.dirty = false;
   const ok = await save(sb.from("diary_entries").upsert({ ...row, updated_at: new Date().toISOString() }));
@@ -285,16 +284,15 @@ const leave = async () => { await flushDraft(); history.back(); };
 $("#entry-done").onclick = leave;
 $("#entry-back").onclick = leave;
 
+// Moves the entry to Recently deleted. It's an ordinary save, so a photo still uploading is saved with it
+// (and removed with it after 30 days). Photos stay until then, so Restore brings them back too.
 $("#entry-delete").onclick = async () => {
   const d = draft;
   if (!confirm(`Move to Recently deleted? You can get it back for ${BIN_DAYS} days.`)) return;
-  clearTimeout(saveTimer);
-  const was = d.status;
-  d.status = "deleted"; // stops any later save, even from a photo still uploading
-  await saving;         // let a save already on its way land first, so this comes after it
-  // Photos stay until it's deleted for good, so Restore brings them back too. Nothing to do for an entry never saved.
-  if (!(await save(sb.from("diary_entries").update({ deleted_at: new Date().toISOString() }).eq("id", d.id)))) { d.status = was; return; }
-  history.back();
+  d.deleted_at = new Date().toISOString();
+  d.dirty = true;
+  if (await flushDraft(d)) history.back();
+  else d.deleted_at = null;
 };
 
 function drawMoods() {
@@ -311,10 +309,7 @@ function drawPhotos() {
   const d = draft;
   const tiles = d.photos.map((path) => {
     const tile = el("div", "dthumb");
-    const img = el("img");
-    img.alt = "Diary photo";
-    fileUrl("diary", path).then((u) => u && (img.src = u));
-    img.onclick = () => { $("#viewer img").src = img.src; $("#viewer").hidden = false; };
+    const img = photo("diary", path, "Diary photo");
     const x = el("button", "dthumb-x", "×");
     x.setAttribute("aria-label", "Remove photo");
     x.onclick = async () => {
@@ -338,9 +333,8 @@ $("#entry-file").onchange = async (e) => {
   e.target.value = "";
   const d = draft; // keep saving to this entry even if you leave the editor while photos upload
   for (const f of files) {
-    const blob = await shrink(f, 1600);
-    const path = `${S.me}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    if (!(await save(sb.storage.from("diary").upload(path, blob, { contentType: blob.type || "image/jpeg" })))) continue;
+    const path = await uploadPhoto("diary", S.me, f, 1600);
+    if (!path) continue;
     d.photos.push(path);
     d.dirty = true;
     if (draft === d) drawPhotos();

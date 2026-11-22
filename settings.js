@@ -1,8 +1,7 @@
 // Settings tab: profile photo, name, appearance, notifications, sign out. Drawn when you open the tab, not on every update.
 import { b64urlToBytes } from "./lib.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { S, sb, $, save, alertBox, loadPeople, fillAvatar, shrink } from "./state.js";
-import { showOnThisDay } from "./diary.js";
+import { S, sb, $, save, alertBox, loadPeople, fillAvatar, uploadPhoto, pref, setPref } from "./state.js";
 import "./export.js"; // the "Download everything" button
 
 // ---------- profile photo ----------
@@ -15,16 +14,16 @@ $("#photo-change").onclick = () => $("#photo-file").click();
 $("#photo-file").onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
-  if (file) setPhoto(await shrink(file, 400));
+  if (file) setPhoto(file);
 };
 $("#photo-remove").onclick = () => setPhoto(null);
 
 // Saves the new photo (or none), then deletes the old file.
-async function setPhoto(blob) {
+async function setPhoto(file) {
   const old = S.people[S.me]?.avatar_path;
-  const path = blob ? `${S.me}/${Date.now()}.jpg` : null;
-  if (blob && !(await save(sb.storage.from("avatars").upload(path, blob, { contentType: blob.type || "image/jpeg" })))) return;
-  if (!(await save(sb.from("profiles").update({ avatar_path: path }).eq("id", S.me)))) return;
+  const path = file && (await uploadPhoto("avatars", S.me, file, 400));
+  if (file && !path) return;
+  if (!(await save(sb.from("profiles").update({ avatar_path: path ?? null }).eq("id", S.me)))) return;
   if (old) sb.storage.from("avatars").remove([old]);
   await loadPeople();
   drawPhoto();
@@ -36,10 +35,11 @@ $("#rename-form").onsubmit = async (e) => {
   if (await save(sb.from("profiles").update({ name: $("#my-name").value.trim() }).eq("id", S.me))) loadPeople();
 };
 
-$("#otd").onchange = (e) => { try { localStorage.setItem("onThisDay", e.target.checked ? "on" : "off"); } catch { /* this visit only */ } };
+// "On this day" can bring back a hard day, so it can be turned off (on this phone). diary.js reads the same setting.
+$("#otd").onchange = (e) => setPref("onThisDay", e.target.checked ? "on" : "off");
 
 $("#theme").onchange = (e) => {
-  try { localStorage.setItem("theme", e.target.value); } catch { /* storage blocked: keep following the phone */ }
+  setPref("theme", e.target.value);
   applyTheme(); // defined in index.html so the theme is set before first paint
 };
 
@@ -51,7 +51,7 @@ export async function renderSettings() {
   drawPhoto();
   $("#my-name").value = S.people[S.me]?.name ?? "";
   document.querySelector(`#theme input[value="${applyTheme()}"]`).checked = true;
-  $("#otd").checked = showOnThisDay();
+  $("#otd").checked = pref("onThisDay") !== "off";
   const t = $("#push-text"), b = $("#push-btn");
   b.hidden = true;
   if (!("PushManager" in window)) {
@@ -80,13 +80,15 @@ $("#push-btn").onclick = async () => {
 };
 
 // Alerts stop first, while you're still signed in; signing out then clears the phone (forgetThisPhone in state.js).
+// Offline, signing out fails and keeps you signed in, so say so instead of doing nothing. Trying again is safe.
+const signOut = async (scope) => { const { error } = await sb.auth.signOut({ scope }); if (error) alertBox(error); };
 $("#signout").onclick = async () => {
   const sub = await currentSub();
   if (sub) await sb.from("push_subs").delete().eq("endpoint", sub.endpoint);
-  await sb.auth.signOut({ scope: "local" }); // just this phone
+  signOut("local"); // just this phone
 };
 $("#signout-all").onclick = async () => {
   if (!confirm("Sign out on every phone, this one too? You'll need your email and password to get back in.")) return;
   if (!(await save(sb.from("push_subs").delete().eq("user_id", S.me)))) return; // a lost phone stops getting message previews
-  await sb.auth.signOut({ scope: "global" }); // other phones sign out within the hour, when their sign-in next renews
+  signOut("global"); // other phones sign out within the hour, when their sign-in next renews
 };

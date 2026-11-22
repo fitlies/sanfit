@@ -2,7 +2,7 @@
 // Two-player games are one row each in the database; a move sends a few hundred bytes. Games against the phone
 // stay on this phone and use no data at all.
 import { GAMES, memoryDeck } from "./games-lib.js";
-import { S, sb, $, el, changed, save, alertBox, fileUrl, otherEmail, personByEmail, nameOf, loadGames } from "./state.js";
+import { S, sb, $, el, changed, open, save, alertBox, fileUrl, otherEmail, personByEmail, nameOf, loadGames } from "./state.js";
 
 const PHONE = "phone";
 let solo = null;         // a game against the phone: { id: "phone", kind, state }. shortcut: not kept once the app closes
@@ -58,11 +58,11 @@ export function renderGames() {
   const list = [...S.games].sort((a, b) => (b.turn === S.me) - (a.turn === S.me) || when(b) - when(a)); // your turn first
   $("#game-list").replaceChildren(...(list.length ? list.map((g) => {
     const row = el("div", "row grow");
-    const open = el("button", "tmain");
-    open.onclick = () => openGame(g.id);
-    open.append(el("span", "ttitle", `${GAMES[g.kind].name} with ${partnerIn(g.chat_id)?.name ?? "someone"}`),
+    const btn = el("button", "tmain");
+    btn.onclick = () => openGame(g.id);
+    btn.append(el("span", "ttitle", `${GAMES[g.kind].name} with ${partnerIn(g.chat_id)?.name ?? "someone"}`),
       el("span", "tsub" + (g.turn === S.me ? " yours" : ""), result(g.state)));
-    row.append(open);
+    row.append(btn);
     return row;
   }) : [el("p", "none", "No games yet. Pick one above to start.")]));
 }
@@ -83,9 +83,7 @@ function startSolo(kind) {
 }
 function openGame(id) {
   S.gameId = id;
-  S.screen = "game";
-  history.pushState({ game: id }, ""); // so the back button returns to the list
-  changed();
+  open("game");
 }
 
 // ---------- one game ----------

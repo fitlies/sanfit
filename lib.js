@@ -45,7 +45,7 @@ export function monthGrid(year, month) {
 // Whole calendar days from today to a date, on the phone's clock: 0 today, 1 tomorrow, -1 yesterday.
 const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 export const daysUntil = (date, now = new Date()) => Math.round((midnight(new Date(date)) - midnight(now)) / 864e5);
-const days = (n) => `${n} ${n === 1 ? "day" : "days"}`;
+export const days = (n) => `${n} ${n === 1 ? "day" : "days"}`;
 
 // "12 days to Shanghai", or "Shanghai is today!" on the day.
 export function countdownText(title, date, now = new Date()) {
@@ -59,6 +59,20 @@ export function dueText(date, now = new Date()) {
   if (n < 0) return `${days(-n)} late`;
   if (n === 0) return new Date(date) < now ? `Overdue since ${time}` : `Due today, ${time}`;
   if (n === 1) return `Due tomorrow, ${time}`;
-  const d = new Date(date), part = (o) => d.toLocaleDateString("en-SG", o);
-  return `${days(n)} left, ${part({ weekday: "short" })} ${d.getDate()} ${part({ month: "short" })}`;
+  const d = new Date(date);
+  return `${days(n)} left, ${weekday(d)} ${d.getDate()} ${d.toLocaleDateString("en-SG", { month: "short" })}`;
 }
+
+// A diary date ("2026-11-22") as a Date at local midnight.
+export const fromLocalDate = (iso) => new Date(`${iso}T00:00`);
+export const monthLabel = (date) => new Date(date).toLocaleDateString("en-SG", { month: "long", year: "numeric" });
+export const weekday = (date, style = "short") => new Date(date).toLocaleDateString("en-SG", { weekday: style });
+// "9:41 am" today, otherwise the day (chat list).
+export const shortWhen = (date) => (dayLabel(date) === "Today" ? timeLabel(date) : dayLabel(date));
+// "today, 9:41 am" / "Mon 17 Nov, 9:41 am" (done to-dos).
+export const whenLabel = (date) => `${dayLabel(date).replace(/^(Today|Yesterday)$/, (w) => w.toLowerCase())}, ${timeLabel(date)}`;
+
+// The to-do a chat counts down to: the soonest open one marked "Count down in chat", not yet past.
+export const nextCountdown = (todos, chatId, now = new Date()) =>
+  todos.filter((t) => t.chat_id === chatId && t.countdown && !t.done_at && t.due_at && daysUntil(t.due_at, now) >= 0)
+    .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))[0];
