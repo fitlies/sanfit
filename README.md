@@ -19,12 +19,14 @@ Forgot a password? Reset it in Supabase under **Authentication > Users**.
 
 ## How the code is laid out
 
+The app's files sit at the top of the GitHub repo, and in the `website/` folder on the Mac. The Mac folder also holds `supabase/` (the database and alert function) and the tests, which aren't on GitHub.
+
 - `index.html` is the page, `app.css` the styles, `config.js` the Supabase address and public keys, `sw.js` the alerts and offline copy, `manifest.webmanifest` the Home Screen icon.
 - `app.js` signs you in, picks which screen shows and keeps data live. Every data change calls its one `render()`, which redraws the current screen and the badges.
 - `state.js` holds the shared data and helpers: loading, saving, photos, `open(screen)` and `pref()` for settings kept on the phone.
 - One file per tab: `chat.js` (plus `search.js` for search and Chat info), `todos.js`, `diary.js`, `games.js`, `settings.js` (plus `export.js` for "Download everything").
 - `lib.js`, `diary-lib.js` and `games-lib.js` are the rules with no screen code, so they're tested.
-- `supabase/schema.sql` is the whole database in one file. `supabase/functions/push` sends the alerts.
+- On the Mac, `supabase/schema.sql` is the whole database in one file, and `supabase/functions/push` sends the alerts.
 
 ## Adding something later
 

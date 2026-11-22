@@ -316,7 +316,7 @@ function drawPhotos() {
       d.photos = d.photos.filter((p) => p !== path);
       d.dirty = true;
       if (draft === d) drawPhotos();
-      if (await flushDraft(d)) sb.storage.from("diary").remove([path]); // only once the entry no longer lists it
+      if (await flushDraft(d)) save(sb.storage.from("diary").remove([path])); // only once the entry no longer lists it
     };
     tile.append(img, x);
     return tile;
