@@ -129,6 +129,10 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
 .send { background: var(--accent); color: var(--on-accent); }
 .send:disabled { opacity: .4; }
 .status { font-size: 12.5px; color: var(--muted); text-align: center; padding: 2px 0 0; }
+.countdown { padding: 5px 16px; text-align: center; background: var(--out); color: var(--accent); font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
+.add .cd input { width: 20px; height: 20px; padding: 0; flex: none; accent-color: var(--accent); }
 
 /* Tabs */
 nav.tabs { display: flex; background: var(--bar); border-top: .5px solid var(--line);
@@ -343,6 +347,7 @@ nav.tabs svg { width: 26px; height: 26px; }
       <div class="avatar" id="partner-avatar" aria-hidden="true">?</div>
       <div><h1 id="partner-name">Sanfit</h1><small id="partner-sub"></small></div>
     </header>
+    <p class="countdown" id="countdown" hidden></p>
     <div id="msgs" aria-live="polite"></div>
     <p class="status" id="chat-status" hidden></p>
     <div id="replybar" hidden>
@@ -369,6 +374,7 @@ nav.tabs svg { width: 26px; height: 26px; }
         <input id="todo-title" placeholder="Add a to-do" maxlength="200" required aria-label="New to-do">
         <div class="seg" id="assign" role="radiogroup" aria-label="Who's doing it"></div>
         <label class="due">Due (optional)<input type="datetime-local" id="todo-due"></label>
+        <label class="cd" id="countdown-row" hidden><input type="checkbox" id="todo-countdown"> Count down in chat</label>
         <button class="btn">Add</button>
       </form>
       <div class="card" id="open-list"></div>
@@ -405,7 +411,7 @@ nav.tabs svg { width: 26px; height: 26px; }
         <p id="push-text"></p>
         <div class="add" style="padding-top:0"><button class="btn" id="push-btn" hidden>Turn on notifications</button></div>
       </div>
-      <div class="card"><div class="add"><button class="btn danger" id="signout">Sign out</button></div></div>
+      <div class="card"><div class="add"><button class="btn danger" id="signout">Sign out</button><button class="btn danger" id="signout-all">Sign out everywhere</button></div></div>
     </div>
   </section>
 

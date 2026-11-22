@@ -41,3 +41,24 @@ export function monthGrid(year, month) {
   while (cells.length % 7) cells.push(null);
   return Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
 }
+
+// Whole calendar days from today to a date, on the phone's clock: 0 today, 1 tomorrow, -1 yesterday.
+const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+export const daysUntil = (date, now = new Date()) => Math.round((midnight(new Date(date)) - midnight(now)) / 864e5);
+const days = (n) => `${n} ${n === 1 ? "day" : "days"}`;
+
+// "12 days to Shanghai", or "Shanghai is today!" on the day.
+export function countdownText(title, date, now = new Date()) {
+  const n = daysUntil(date, now);
+  return n === 0 ? `${title} is today!` : `${days(n)} to ${title}`;
+}
+
+// The line under an open to-do with a due time.
+export function dueText(date, now = new Date()) {
+  const n = daysUntil(date, now), time = timeLabel(date);
+  if (n < 0) return `${days(-n)} late`;
+  if (n === 0) return new Date(date) < now ? `Overdue since ${time}` : `Due today, ${time}`;
+  if (n === 1) return `Due tomorrow, ${time}`;
+  const d = new Date(date), part = (o) => d.toLocaleDateString("en-SG", o);
+  return `${days(n)} left, ${part({ weekday: "short" })} ${d.getDate()} ${part({ month: "short" })}`;
+}

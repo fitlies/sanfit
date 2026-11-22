@@ -1,5 +1,5 @@
 // Chats tab: the chat list, one open chat, replies, reactions, sending text and photos.
-import { dayLabel, timeLabel } from "./lib.js";
+import { dayLabel, timeLabel, daysUntil, countdownText } from "./lib.js";
 import { S, sb, $, el, TICK, changed, save, alertBox, fileUrl, fillAvatar, shrink, chatName, nameOf, snippet, unreadIn, personByEmail, otherEmail, loadReactions } from "./state.js";
 
 const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 6l3 3 6-7M7 8l1 1 6-7"/></svg>';
@@ -56,6 +56,11 @@ export function renderChat() {
   fillAvatar($("#partner-avatar"), chatName(c), other(c)?.avatar_path);
   $("#partner-name").textContent = chatName(c);
   $("#partner-sub").textContent = joined(c) ? "" : "They'll see your messages once they join.";
+  // The next date you marked "Count down in chat" on a to-do; gone once the day has passed.
+  const soon = S.todos.filter((t) => t.chat_id === c.id && t.countdown && !t.done_at && t.due_at && daysUntil(t.due_at) >= 0)
+    .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))[0];
+  $("#countdown").hidden = !soon;
+  if (soon) $("#countdown").textContent = countdownText(soon.title, soon.due_at);
 
   const top = box.scrollTop; // redraws on every change; keep the spot if you're scrolled up
   const list = S.messages.filter((m) => m.chat_id === S.chatId);

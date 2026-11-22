@@ -74,8 +74,14 @@ $("#push-btn").onclick = async () => {
   renderSettings();
 };
 
+// Alerts stop first, while you're still signed in; signing out then clears the phone (forgetThisPhone in state.js).
 $("#signout").onclick = async () => {
   const sub = await currentSub();
-  if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
-  await sb.auth.signOut();
+  if (sub) await sb.from("push_subs").delete().eq("endpoint", sub.endpoint);
+  await sb.auth.signOut({ scope: "local" }); // just this phone
+};
+$("#signout-all").onclick = async () => {
+  if (!confirm("Sign out on every phone, this one too? You'll need your email and password to get back in.")) return;
+  if (!(await save(sb.from("push_subs").delete().eq("user_id", S.me)))) return; // a lost phone stops getting message previews
+  await sb.auth.signOut({ scope: "global" }); // other phones sign out within the hour, when their sign-in next renews
 };

@@ -46,11 +46,13 @@ export function restoreCopy() {
     return true;
   } catch { return false; }
 }
-// On sign-out: remove every saved copy and cached photo from this phone.
+// On sign-out: remove every saved copy, cached photo and alert subscription from this phone.
 export async function forgetThisPhone() {
   clearTimeout(keepTimer);
   try { for (const k of Object.keys(localStorage)) if (k.startsWith("saved:")) localStorage.removeItem(k); } catch { /* nothing stored */ }
   await window.caches?.delete(PHOTO_CACHE).catch(() => {});
+  const reg = await navigator.serviceWorker?.getRegistration().catch(() => null);
+  await (await reg?.pushManager?.getSubscription())?.unsubscribe().catch(() => {}); // so Settings offers "Turn on" again
 }
 
 // ---------- who's who ----------

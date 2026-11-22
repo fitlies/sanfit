@@ -1,5 +1,5 @@
 // To-dos tab: one list per chat, with who it's for and an optional due time.
-import { dayLabel, timeLabel } from "./lib.js";
+import { dayLabel, timeLabel, dueText } from "./lib.js";
 import { S, sb, $, el, TICK, changed, save, chatName, nameOf, personByEmail, otherEmail, loadTodos } from "./state.js";
 
 function radios(container, name, opts, cur, onPick) {
@@ -38,11 +38,15 @@ $("#todo-form").onsubmit = async (e) => {
   if (!title || !S.todoChat) return;
   const dueRaw = $("#todo-due").value; // local time from the phone's picker
   const due_at = dueRaw ? new Date(dueRaw).toISOString() : null;
-  if (!(await save(sb.from("todos").insert({ chat_id: S.todoChat, title, assignee: S.assignee || null, due_at })))) return;
+  const countdown = !!due_at && $("#todo-countdown").checked;
+  if (!(await save(sb.from("todos").insert({ chat_id: S.todoChat, title, assignee: S.assignee || null, due_at, countdown })))) return;
   $("#todo-title").value = "";
   $("#todo-due").value = "";
+  $("#todo-countdown").checked = false;
+  $("#countdown-row").hidden = true;
   loadTodos();
 };
+$("#todo-due").oninput = (e) => { $("#countdown-row").hidden = !e.target.value; }; // a countdown needs a date
 
 function todoRow(t) {
   const r = el("div", "row" + (t.done_at ? " done" : ""));
@@ -59,7 +63,7 @@ function todoRow(t) {
     main.append(el("span", "tsub", `Done by ${nameOf(t.done_by)}, ${whenLabel(t.done_at)}`));
   } else if (t.due_at) {
     const late = new Date(t.due_at) < new Date();
-    main.append(el("span", "tsub" + (late ? " late" : ""), `${late ? "Overdue" : "Due"} ${whenLabel(t.due_at)}`));
+    main.append(el("span", "tsub" + (late ? " late" : ""), (t.countdown ? "⏳ " : "") + dueText(t.due_at)));
   }
   r.append(c, main);
   if (t.assignee && !t.done_at) r.append(el("span", "for" + (t.assignee === S.me ? " me" : ""), t.assignee === S.me ? "For you" : `For ${nameOf(t.assignee)}`));
