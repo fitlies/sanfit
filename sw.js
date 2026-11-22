@@ -10,7 +10,9 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET" || (url.origin !== location.origin && url.hostname !== "esm.sh")) return;
   e.respondWith(caches.open(APP_CACHE).then(async (cache) => {
     try {
-      const res = await fetch(e.request);
+      // The app's own files always check with the server (a tiny "not changed" reply when they haven't), so a new
+      // index.html never runs with an old app.js the phone kept from before.
+      const res = await fetch(e.request, url.origin === location.origin ? { cache: "no-cache" } : undefined);
       if (res.ok) cache.put(e.request, res.clone());
       return res;
     } catch {
