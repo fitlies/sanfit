@@ -91,6 +91,11 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
         <input id="search-q" type="search" placeholder="Search messages" aria-label="Search messages" maxlength="100" enterkeyhint="search">
       </form>
       <div class="card" id="search-results" hidden></div>
+      <div class="card">
+        <h2>Photos</h2>
+        <div class="gallery" id="gallery"></div>
+        <div class="add" style="padding-top:0"><button class="btn plain" id="gallery-more" hidden>Show more</button></div>
+      </div>
     </div>
   </section>
 
@@ -199,6 +204,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme
           <div class="cal-grid" id="cal-grid"></div>
           <p class="cal-moods" id="cal-moods"></p>
         </div>
+        <div id="diary-bin" hidden></div>
       </div>
     </div>
   </section>

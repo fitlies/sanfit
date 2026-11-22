@@ -22,3 +22,7 @@ export function moodSummary(entries, month) {
   const leaders = list.filter((x) => x.count === most);
   return { list, top: leaders.length === 1 ? leaders[0] : null };
 }
+
+// Recently deleted: whole days left before an entry deleted at deletedAt is gone for good (0 = due now).
+export const BIN_DAYS = 30;
+export const binDaysLeft = (deletedAt, now = new Date()) => Math.max(0, BIN_DAYS - Math.floor((now - new Date(deletedAt)) / 864e5));

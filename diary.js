@@ -2,12 +2,13 @@
 // a mood calendar, a PIN lock on this phone, and page themes. Only the writer can read entries.
 // Signing out reloads the app, so everything here belongs to the person signed in.
 import { localDate, monthGrid } from "./lib.js";
-import { MOODS, searchEntries, onThisDay, moodSummary } from "./diary-lib.js";
+import { MOODS, searchEntries, onThisDay, moodSummary, binDaysLeft, BIN_DAYS } from "./diary-lib.js";
 import { S, sb, $, el, changed, save, alertBox, fileUrl, shrink } from "./state.js";
 const THEMES = [["plain", "Plain"], ["paper", "Paper"], ["rose", "Rose"], ["mint", "Mint"], ["sky", "Sky"], ["night", "Night"]];
 
 let entries = [];          // your own entries, newest first
-let view = "list";         // list | calendar
+let binned = [];           // entries in Recently deleted
+let view = "list";         // list | calendar | bin
 let query = "";            // what's typed in the diary search
 let month = new Date();    // month shown in the calendar
 let draft = null;          // the entry open in the editor
@@ -19,8 +20,16 @@ async function loadEntries() {
   const { data, error } = await sb.from("diary_entries").select("*")
     .order("entry_date", { ascending: false }).order("created_at", { ascending: false });
   if (error) return alertBox(error);
-  entries = data;
+  entries = data.filter((e) => !e.deleted_at);
+  binned = data.filter((e) => e.deleted_at && binDaysLeft(e.deleted_at) > 0);
   changed();
+  // Gone for good after 30 days. Done here, on the phone, because the database can't remove the photo files.
+  for (const e of data.filter((x) => x.deleted_at && !binDaysLeft(x.deleted_at))) deleteForGood(e);
+}
+async function deleteForGood(e) {
+  if (!(await save(sb.from("diary_entries").delete().eq("id", e.id)))) return false;
+  if (e.photos.length) sb.storage.from("diary").remove(e.photos);
+  return true;
 }
 
 // Called each time you open the Diary tab.
@@ -125,9 +134,10 @@ export function renderDiary() {
   $("#diary-view").classList.toggle("on", view === "calendar");
   $("#diary-list").hidden = view !== "list";
   $("#diary-cal").hidden = view !== "calendar";
-  view === "list" ? renderList() : renderCalendar();
+  $("#diary-bin").hidden = view !== "bin";
+  ({ list: renderList, calendar: renderCalendar, bin: renderBin })[view]();
 }
-$("#diary-view").onclick = () => { view = view === "list" ? "calendar" : "list"; changed(); };
+$("#diary-view").onclick = () => { view = view === "calendar" ? "list" : "calendar"; changed(); };
 $("#diary-find").onclick = () => {
   const box = $("#diary-search");
   box.hidden = !box.hidden;
@@ -143,7 +153,8 @@ export const showOnThisDay = () => { try { return localStorage.getItem("onThisDa
 $("#diary-new").onclick = () => openEntry(null);
 
 function renderList() {
-  if (!entries.length) return $("#diary-list").replaceChildren(el("p", "none", "No entries yet. Tap + to write your first one."));
+  const binLink = binned.length && !query.trim() ? [Object.assign(el("button", "bin-link", `Recently deleted (${binned.length})`), { onclick: () => { view = "bin"; changed(); } })] : [];
+  if (!entries.length) return $("#diary-list").replaceChildren(el("p", "none", "No entries yet. Tap + to write your first one."), ...binLink);
   const shown = searchEntries(entries, query);
   if (!shown.length) return $("#diary-list").replaceChildren(el("p", "none", `Nothing found for "${query.trim()}".`));
   const out = query.trim() || !showOnThisDay() ? [] : onThisDay(entries, localDate()).slice(0, 3).map((e) => {
@@ -174,8 +185,30 @@ function renderList() {
     card.append(side);
     out.push(card);
   }
-  $("#diary-list").replaceChildren(...out);
+  $("#diary-list").replaceChildren(...out, ...binLink);
 }
+
+// ---------- Recently deleted ----------
+function renderBin() {
+  const back = Object.assign(el("button", "bin-link", "‹ Back to diary"), { onclick: () => { view = "list"; changed(); } });
+  $("#diary-bin").replaceChildren(back, el("p", "bin-note", `Entries here are deleted for good after ${BIN_DAYS} days.`),
+    ...(binned.length ? binned.map((e) => {
+      const card = el("div", "dcard bin");
+      const main = el("div", "dmain");
+      const left = binDaysLeft(e.deleted_at);
+      main.append(el("span", "dtitle", e.title || "Untitled"),
+        el("span", "dsnip", `${whenDate(e.entry_date)}. Deletes in ${left} ${left === 1 ? "day" : "days"}`));
+      const restore = Object.assign(el("button", "btn plain", "Restore"), {
+        onclick: async () => { if (await save(sb.from("diary_entries").update({ deleted_at: null }).eq("id", e.id))) loadEntries(); },
+      });
+      const now = Object.assign(el("button", "btn danger", "Delete now"), {
+        onclick: async () => { if (confirm("Delete for good? You can't undo this.") && (await deleteForGood(e))) loadEntries(); },
+      });
+      card.append(main, restore, now);
+      return card;
+    }) : [el("p", "none", "Nothing here.")]));
+}
+const whenDate = (iso) => new Date(`${iso}T00:00`).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
 function renderCalendar() {
   const y = month.getFullYear(), m = month.getMonth();
@@ -254,13 +287,13 @@ $("#entry-back").onclick = leave;
 
 $("#entry-delete").onclick = async () => {
   const d = draft;
-  if (!confirm("Delete this entry? This can't be undone.")) return;
+  if (!confirm(`Move to Recently deleted? You can get it back for ${BIN_DAYS} days.`)) return;
   clearTimeout(saveTimer);
   const was = d.status;
   d.status = "deleted"; // stops any later save, even from a photo still uploading
-  await saving;         // let a save already on its way land first, so the delete comes after it
-  if (!(await save(sb.from("diary_entries").delete().eq("id", d.id)))) { d.status = was; return; }
-  if (d.photos.length) sb.storage.from("diary").remove(d.photos);
+  await saving;         // let a save already on its way land first, so this comes after it
+  // Photos stay until it's deleted for good, so Restore brings them back too. Nothing to do for an entry never saved.
+  if (!(await save(sb.from("diary_entries").update({ deleted_at: new Date().toISOString() }).eq("id", d.id)))) { d.status = was; return; }
   history.back();
 };
 

@@ -305,3 +305,16 @@ mark { background: var(--out); color: inherit; border-radius: 3px; padding: 0 1p
 .dcard.otd { border: 1.5px solid var(--accent); }
 .otd .dmonth { margin: 0 0 2px; color: var(--accent); }
 .cal-moods small { display: block; margin-top: 4px; font-size: 14px; }
+
+/* Chat info photos */
+.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 4px 12px 12px; }
+.gallery button { aspect-ratio: 1; padding: 0; overflow: hidden; border-radius: 6px; background: var(--chip); }
+.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery .none { grid-column: 1 / -1; padding: 6px 4px; }
+
+/* Diary: Recently deleted */
+.bin-link { display: block; padding: 10px 4px; color: var(--accent); font-weight: 600; }
+.bin-note { margin: 0 4px 10px; font-size: 14px; color: var(--page-muted); }
+.dcard.bin { flex-wrap: wrap; gap: 4px 18px; }
+.dcard.bin .dmain { flex-basis: 100%; }
+.dcard.bin .btn { padding: 4px 0; }
