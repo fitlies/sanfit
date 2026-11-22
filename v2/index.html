@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Sanfit v2</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sanfit v2">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F8F6FB">
+<script>
+// Theme: "auto" follows the phone; runs before first paint so there's no flash.
+function applyTheme() {
+  var t; try { t = localStorage.getItem("theme") || "auto"; } catch (e) { t = "auto"; }
+  var dark = t === "dark" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#18151D" : "#F8F6FB";
+  return t;
+}
+applyTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+</script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+
+  <section id="login" class="login" hidden>
+    <h1>Sanfit</h1>
+    <p id="login-hint">Sign in with your email and password.</p>
+    <form id="login-form" class="add" style="padding:0">
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="Email" required>
+      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Password" minlength="8" required>
+      <button class="btn" id="login-btn">Sign in</button>
+      <button type="button" id="mode" class="btn plain">First time here? Create your password</button>
+    </form>
+    <p class="err" id="login-err" role="alert"></p>
+  </section>
+
+  <section id="name-step" class="login" hidden>
+    <h1>Hi!</h1>
+    <p>What should we call you?</p>
+    <form id="name-form" class="add" style="padding:0">
+      <input id="first-name" class="field" autocomplete="given-name" placeholder="Your name" maxlength="40" required>
+      <button class="btn">Continue</button>
+    </form>
+  </section>
+
+  <!-- Home: a greeting and the tiles stay on top; the tapped tile's screen opens right below them. -->
+  <div id="top" hidden>
+    <div class="hello">
+      <div><small id="hello-time"></small><h1 id="hello-name">Hi</h1></div>
+      <button class="avatar" id="hello-me" aria-label="Settings"></button>
+    </div>
+    <!-- To add an add-on later: add a <section class="screen"> below and a tile here with the same data-tab. -->
+    <nav class="tiles" id="tabs" aria-label="Sanfit">
+      <button data-tab="chats"><span class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8z"/></svg>
+        <span class="badge" id="chat-badge" hidden></span></span>Chats</button>
+      <button data-tab="todos"><span class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 8h8M12 16h8"/></svg>
+        <span class="badge" id="todo-badge" hidden></span></span>To-dos</button>
+      <button data-tab="diary"><span class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v18M11 8h4"/></svg>
+        </span>Diary</button>
+      <button data-tab="games"><span class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
+        <span class="badge" id="game-badge" hidden></span></span>Games</button>
+      <button data-tab="settings"><span class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+        </span>Settings</button>
+    </nav>
+  </div>
+
+  <section id="home" class="screen" aria-label="Home" hidden>
+    <div class="pane" id="glance"></div>
+  </section>
+
+  <section id="chats" class="screen" aria-label="Chats" hidden>
+    <div class="list" id="chat-list"></div>
+  </section>
+
+  <section id="chat" class="screen" hidden>
+    <header>
+      <button class="back" id="back" aria-label="Back to chats">‹</button>
+      <button class="who" id="chat-who" aria-label="Chat info and search">
+        <span class="avatar" id="partner-avatar" aria-hidden="true">?</span>
+        <span><h1 id="partner-name">Sanfit</h1><small id="partner-sub"></small></span>
+      </button>
+    </header>
+    <p class="countdown" id="countdown" hidden></p>
+    <div id="msgs" aria-live="polite"></div>
+    <p class="status" id="chat-status" hidden></p>
+    <div id="replybar" hidden>
+      <div class="quote"><b id="reply-name"></b><span id="reply-text"></span></div>
+      <button type="button" class="icon-btn" id="reply-cancel" aria-label="Cancel reply">×</button>
+    </div>
+    <form class="composer" id="composer">
+      <button type="button" class="icon-btn" id="attach" aria-label="Add photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <textarea id="text" rows="1" placeholder="Message" aria-label="Message"></textarea>
+      <button class="icon-btn send" id="send" aria-label="Send" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+      </button>
+    </form>
+  </section>
+
+  <section id="chat-info" class="screen" hidden>
+    <header>
+      <button class="back" id="info-back" aria-label="Back to chat">‹</button>
+      <div class="avatar" id="info-avatar" aria-hidden="true"></div>
+      <div><h1 id="info-name"></h1><small>Chat info</small></div>
+    </header>
+    <div class="pane">
+      <form class="card add" id="search-form" role="search">
+        <input id="search-q" type="search" placeholder="Search messages" aria-label="Search messages" maxlength="100" enterkeyhint="search">
+      </form>
+      <div class="card" id="search-results" hidden></div>
+      <div class="card">
+        <h2>Photos</h2>
+        <div class="gallery" id="gallery"></div>
+        <div class="add" style="padding-top:0"><button class="btn plain" id="gallery-more" hidden>Show more</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="todos" class="screen" aria-label="To-dos" hidden>
+    <div class="pane">
+      <div class="seg pick" id="todo-chat" role="radiogroup" aria-label="Whose list" hidden></div>
+      <form class="card add" id="todo-form">
+        <input id="todo-title" placeholder="Add a to-do" maxlength="200" required aria-label="New to-do">
+        <div class="seg" id="assign" role="radiogroup" aria-label="Who's doing it"></div>
+        <label class="due">Due (optional)<input type="datetime-local" id="todo-due"></label>
+        <div class="due-extras" id="due-extras" hidden>
+          <label class="cd">Repeat
+            <select id="todo-repeat"><option value="">Never</option><option value="day">Every day</option><option value="week">Every week</option><option value="month">Every month</option></select>
+          </label>
+          <label class="cd"><input type="checkbox" id="todo-countdown"> Count down in chat</label>
+        </div>
+        <button class="btn">Add</button>
+      </form>
+      <div class="card" id="open-list"></div>
+      <div class="card" id="done-list" hidden></div>
+    </div>
+  </section>
+
+  <section id="settings" class="screen" aria-label="Settings" hidden>
+    <div class="pane settings">
+      <div class="card">
+        <h2>Profile</h2>
+        <div class="add me-photo">
+          <div class="avatar big" id="my-avatar" aria-hidden="true"></div>
+          <button type="button" class="btn plain" id="photo-change">Change photo</button>
+          <button type="button" class="btn danger" id="photo-remove" hidden>Remove</button>
+          <input type="file" id="photo-file" accept="image/*" hidden>
+        </div>
+        <form class="add" id="rename-form">
+          <input id="my-name" maxlength="40" required aria-label="Your name">
+          <button class="btn">Save name</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Appearance</h2>
+        <div class="add"><div class="seg" id="theme" role="radiogroup" aria-label="Appearance">
+          <label><input type="radio" name="theme" value="auto"><span>Automatic</span></label>
+          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+        </div></div>
+      </div>
+      <div class="card">
+        <h2>Notifications</h2>
+        <p id="push-text"></p>
+        <div class="add" style="padding-top:0"><button class="btn" id="push-btn" hidden>Turn on notifications</button></div>
+      </div>
+      <div class="card">
+        <h2>Diary</h2>
+        <div class="add"><label class="cd"><input type="checkbox" id="otd"> Show "On this day"</label></div>
+      </div>
+      <div class="card">
+        <h2>Your data</h2>
+        <p>Saves your chats, to-dos, games and diary in one file on this phone.</p>
+        <div class="add" style="padding-top:0"><button class="btn" id="export">Download everything</button></div>
+      </div>
+      <div class="card"><div class="add"><button class="btn danger" id="signout">Sign out</button><button class="btn danger" id="signout-all">Sign out everywhere</button></div></div>
+    </div>
+  </section>
+
+  <section id="diary" class="screen" hidden>
+    <header>
+      <h1>Diary</h1>
+      <span class="tools" id="diary-tools" hidden>
+        <button class="icon-btn" id="diary-find" aria-label="Search diary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        </button>
+        <button class="icon-btn" id="diary-view" aria-label="Show calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+        </button>
+        <button class="icon-btn" id="diary-theme" aria-label="Diary theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.3-1.7-.4-1 .3-2.3 1.5-2.3H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>
+        </button>
+        <button class="icon-btn send" id="diary-new" aria-label="New entry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </span>
+    </header>
+    <div class="pane dpage">
+      <div class="lock" id="diary-lock">
+        <p id="pin-title"></p>
+        <input id="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="Diary PIN">
+        <form id="pin-pass" hidden>
+          <input id="pin-password" class="field" type="password" autocomplete="current-password" placeholder="Sanfit password" required>
+          <button class="btn">Reset PIN</button>
+        </form>
+        <p class="err" id="pin-err" role="alert"></p>
+        <button type="button" class="btn plain" id="pin-forgot">Forgot PIN?</button>
+      </div>
+      <div id="diary-main" hidden>
+        <div class="dsearch" id="diary-search" hidden><input id="diary-q" class="field" type="search" placeholder="Search diary" aria-label="Search diary" maxlength="100"></div>
+        <div class="themes" id="theme-row" hidden></div>
+        <div id="diary-list"></div>
+        <div id="diary-cal" hidden>
+          <div class="cal-bar">
+            <button id="cal-prev" aria-label="Previous month">‹</button>
+            <b id="cal-title"></b>
+            <button id="cal-next" aria-label="Next month">›</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <p class="cal-moods" id="cal-moods"></p>
+        </div>
+        <div id="diary-bin" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="diary-entry" class="screen" hidden>
+    <header>
+      <button class="back" id="entry-back" aria-label="Back to diary">‹</button>
+      <input type="date" id="entry-date" class="entry-date" aria-label="Date">
+      <button class="btn plain" id="entry-done">Done</button>
+    </header>
+    <div class="pane dpage">
+      <div class="moods" id="entry-moods" role="group" aria-label="Mood"></div>
+      <input id="entry-title" class="entry-title" placeholder="Title" maxlength="200" aria-label="Title">
+      <textarea id="entry-body" class="entry-body" placeholder="Dear diary…" maxlength="20000" aria-label="Entry"></textarea>
+      <div class="dphotos-row" id="entry-photos"></div>
+      <input type="file" id="entry-file" accept="image/*" multiple hidden>
+      <button type="button" class="btn danger" id="entry-delete">Delete entry</button>
+    </div>
+  </section>
+
+  <section id="games" class="screen" aria-label="Games" hidden>
+    <div class="pane">
+      <div class="gkinds" id="game-kinds"></div>
+      <div class="card gwho-card" id="game-who" hidden></div>
+      <div class="card" id="game-list"></div>
+    </div>
+  </section>
+
+  <section id="game" class="screen" hidden>
+    <header>
+      <button class="back" id="game-back" aria-label="Back to games">‹</button>
+      <div><h1 id="game-title"></h1><small id="game-sub"></small></div>
+    </header>
+    <div class="pane gpane">
+      <div class="gplayers" id="game-players"></div>
+      <p class="gstatus" id="game-status" role="status"></p>
+      <div class="board" id="board"></div>
+      <div class="gactions">
+        <button class="btn" id="game-again" hidden>Play again</button>
+        <button class="btn danger" id="game-end">Remove game</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<p id="toast" role="alert" hidden></p>
+<div id="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-label="Message options">
+    <div class="emojis" id="emojis"></div>
+    <button id="act-reply">Reply</button>
+    <button id="act-copy">Copy text</button>
+    <button id="act-cancel">Cancel</button>
+  </div>
+</div>
+<div id="viewer" hidden><button aria-label="Close photo">Close</button><img alt="Photo"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
