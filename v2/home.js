@@ -13,7 +13,8 @@ export function renderTop() {
   $("#hello-time").textContent = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   $("#hello-name").textContent = me ? `Hi ${me.name}` : "Hi";
   const key = `${me?.name}|${me?.avatar_path}`;
-  if (me && $("#hello-me").dataset.key !== key) { $("#hello-me").dataset.key = key; fillAvatar($("#hello-me"), me.name, me.avatar_path); }
+  const box = $("#hello-avatar");
+  if (me && box.dataset.key !== key) { box.dataset.key = key; fillAvatar(box, me.name, me.avatar_path); }
 }
 
 function card(title, rows, seeAll) {
@@ -44,8 +45,7 @@ export function renderHome(openTile) {
     return row(chatName(c), snippet(last), () => openChat(c.id), el("span", "count", unreadIn(c.id)));
   });
 
-  const dueOrder = (t) => (t.due_at ? Date.parse(t.due_at) : Infinity);
-  const todos = myTodos().sort((a, b) => dueOrder(a) - dueOrder(b)).map((t) => {
+  const todos = myTodos().map((t) => {
     const chat = S.chats.find((c) => c.id === t.chat_id);
     const sub = [t.due_at && dueText(t.due_at), chat && `With ${chatName(chat)}`].filter(Boolean).join(". ");
     // A new to-do on that list starts as "Anyone", as when you switch lists in To-dos.

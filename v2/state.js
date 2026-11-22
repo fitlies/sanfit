@@ -1,7 +1,7 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { initial, fitSize } from "./lib.js";
+import { initial, fitSize, todosFor } from "./lib.js";
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 export const $ = (s) => document.querySelector(s);
@@ -77,7 +77,7 @@ export const nameOf = (id) => (id === S.me ? "You" : S.people[id]?.name ?? "Some
 export const snippet = (m) => (m?.body ? m.body.slice(0, 80) : m?.image_path ? "📷 Photo" : "");
 export const unreadIn = (cid) => S.messages.filter((m) => m.chat_id === cid && m.sender !== S.me && !m.read_at).length;
 // What's waiting for you: the tile badges and the home cards both count these.
-export const myTodos = () => S.todos.filter((t) => !t.done_at && t.assignee === S.me);
+export const myTodos = () => todosFor(S.todos, S.me);
 export const myTurns = () => S.games.filter((g) => g.turn === S.me);
 
 function toast(text) {

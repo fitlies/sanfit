@@ -12,7 +12,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
 // Everything happens on the home screen: the greeting and tiles stay on top, and the tapped tile's screen opens below.
-const TABS = [...document.querySelectorAll("#tabs [data-tab]")].map((b) => b.dataset.tab); // one per tile in index.html
+const TABS = [...document.querySelectorAll("#top [data-tab]")].map((b) => b.dataset.tab); // the tiles, plus your photo for Settings
 const BARE = ["login", "name-step"]; // the only screens without the tiles
 const LIVE = { home: () => renderHome(openTile), chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
 const ENTER = { settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (chat: back from Chat info)
@@ -28,7 +28,7 @@ function render() {
   $("#top").hidden = BARE.includes(S.screen);
   $("#top").classList.toggle("slim", !!INSIDE[S.screen]); // inside a chat, entry or game: the tiles shrink to a strip
   const lit = INSIDE[S.screen] ?? S.screen;
-  document.querySelectorAll("#tabs button").forEach((b) =>
+  document.querySelectorAll("#top [data-tab]").forEach((b) =>
     b.dataset.tab === lit ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   renderTop();
 
@@ -64,8 +64,7 @@ function openTile(tab) {
   else history.replaceState({ screen: tab, depth: depth() }, "");
   go(tab);
 }
-$("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) openTile(b.dataset.tab); };
-$("#hello-me").onclick = () => openTile("settings");
+$("#top").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) openTile(b.dataset.tab); };
 
 // ---------- sign-in ----------
 let signingUp = false;

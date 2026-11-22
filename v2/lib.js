@@ -76,3 +76,8 @@ export const whenLabel = (date) => `${dayLabel(date).replace(/^(Today|Yesterday)
 export const nextCountdown = (todos, chatId, now = new Date()) =>
   todos.filter((t) => t.chat_id === chatId && t.countdown && !t.done_at && t.due_at && daysUntil(t.due_at, now) >= 0)
     .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))[0];
+
+// Open to-dos given to `me`, soonest due first and undated last (the To-dos badge and the home card).
+const dueOrder = (t) => (t.due_at ? Date.parse(t.due_at) : Infinity);
+export const todosFor = (todos, me) =>
+  todos.filter((t) => !t.done_at && t.assignee === me).sort((a, b) => (dueOrder(a) === dueOrder(b) ? 0 : dueOrder(a) - dueOrder(b)));
