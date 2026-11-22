@@ -2,13 +2,13 @@
 // a mood calendar, a PIN lock on this phone, and page themes. Only the writer can read entries.
 // Signing out reloads the app, so everything here belongs to the person signed in.
 import { localDate, monthGrid } from "./lib.js";
+import { MOODS, searchEntries, onThisDay, moodSummary } from "./diary-lib.js";
 import { S, sb, $, el, changed, save, alertBox, fileUrl, shrink } from "./state.js";
-
-const MOODS = [["😄", "Great"], ["🙂", "Good"], ["😐", "Okay"], ["😔", "Sad"], ["😠", "Angry"], ["😴", "Tired"]];
 const THEMES = [["plain", "Plain"], ["paper", "Paper"], ["rose", "Rose"], ["mint", "Mint"], ["sky", "Sky"], ["night", "Night"]];
 
 let entries = [];          // your own entries, newest first
 let view = "list";         // list | calendar
+let query = "";            // what's typed in the diary search
 let month = new Date();    // month shown in the calendar
 let draft = null;          // the entry open in the editor
 let saveTimer = null, saving = Promise.resolve();
@@ -128,13 +128,36 @@ export function renderDiary() {
   view === "list" ? renderList() : renderCalendar();
 }
 $("#diary-view").onclick = () => { view = view === "list" ? "calendar" : "list"; changed(); };
+$("#diary-find").onclick = () => {
+  const box = $("#diary-search");
+  box.hidden = !box.hidden;
+  query = box.hidden ? "" : query;
+  $("#diary-q").value = query;
+  if (!box.hidden) { view = "list"; $("#diary-q").focus(); }
+  changed();
+};
+$("#diary-q").oninput = (e) => { query = e.target.value; changed(); };
+
+// "On this day" can bring back a hard day, so Settings can turn it off (on this phone).
+export const showOnThisDay = () => { try { return localStorage.getItem("onThisDay") !== "off"; } catch { return true; } };
 $("#diary-new").onclick = () => openEntry(null);
 
 function renderList() {
   if (!entries.length) return $("#diary-list").replaceChildren(el("p", "none", "No entries yet. Tap + to write your first one."));
+  const shown = searchEntries(entries, query);
+  if (!shown.length) return $("#diary-list").replaceChildren(el("p", "none", `Nothing found for "${query.trim()}".`));
+  const out = query.trim() || !showOnThisDay() ? [] : onThisDay(entries, localDate()).slice(0, 3).map((e) => {
+    const card = el("button", "dcard otd");
+    card.onclick = () => openEntry(e);
+    const main = el("div", "dmain");
+    main.append(el("span", "dmonth", `On this day in ${e.entry_date.slice(0, 4)}`), el("span", "dtitle", e.title || "Untitled"),
+      el("span", "dsnip", (e.body ?? "").slice(0, 140)));
+    card.append(main);
+    if (e.mood) card.append(el("span", "dmood", e.mood));
+    return card;
+  });
   let lastMonth = "";
-  const out = [];
-  for (const e of entries) {
+  for (const e of shown) {
     const d = new Date(`${e.entry_date}T00:00`);
     const m = d.toLocaleDateString("en-SG", { month: "long", year: "numeric" });
     if (m !== lastMonth) { out.push(el("h2", "dmonth", m)); lastMonth = m; }
@@ -173,11 +196,10 @@ function renderCalendar() {
   $("#cal-grid").replaceChildren(...["S", "M", "T", "W", "T", "F", "S"].map((d) => el("span", "cal-head", d)), ...days);
 
   // This month's moods at a glance.
-  const prefix = localDate(new Date(y, m, 1)).slice(0, 7);
-  const counts = {};
-  for (const e of entries) if (e.mood && e.entry_date.startsWith(prefix)) counts[e.mood] = (counts[e.mood] ?? 0) + 1;
-  const summary = MOODS.filter(([em]) => counts[em]).map(([em]) => `${em} ${counts[em]}`).join("   ");
-  $("#cal-moods").textContent = summary || "No moods logged this month.";
+  const { list, top } = moodSummary(entries, localDate(new Date(y, m, 1)).slice(0, 7));
+  $("#cal-moods").replaceChildren(...(list.length
+    ? [el("span", null, list.map((x) => `${x.mood} ${x.count}`).join("   ")), ...(top ? [el("small", null, `Mostly ${top.label.toLowerCase()} this month`)] : [])]
+    : [el("span", null, "No moods logged this month.")]));
 }
 $("#cal-prev").onclick = () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); changed(); };
 $("#cal-next").onclick = () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); changed(); };

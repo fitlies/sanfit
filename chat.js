@@ -4,7 +4,7 @@ import { S, sb, $, el, TICK, changed, save, alertBox, fileUrl, fillAvatar, shrin
 
 const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 6l3 3 6-7M7 8l1 1 6-7"/></svg>';
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
-let replyTo = null, stick = true;
+let replyTo = null, stick = true, pendingJump = null;
 
 const other = (c) => personByEmail(otherEmail(c)); // undefined until they join
 const joined = (c) => !!other(c);
@@ -74,6 +74,13 @@ export function renderChat() {
     lastSender = m.sender;
   }
   if (stick) scrollBottom(); else box.scrollTop = top;
+  if (pendingJump) { jumpTo(pendingJump); pendingJump = null; }
+}
+
+// Opens at a message instead of the bottom (used by search in Chat info).
+export function showMessage(id) {
+  pendingJump = id;
+  stick = false;
 }
 
 function bubble(m, first) {

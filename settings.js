@@ -2,6 +2,8 @@
 import { b64urlToBytes } from "./lib.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { S, sb, $, save, alertBox, loadPeople, fillAvatar, shrink } from "./state.js";
+import { showOnThisDay } from "./diary.js";
+import "./export.js"; // the "Download everything" button
 
 // ---------- profile photo ----------
 function drawPhoto() {
@@ -34,6 +36,8 @@ $("#rename-form").onsubmit = async (e) => {
   if (await save(sb.from("profiles").update({ name: $("#my-name").value.trim() }).eq("id", S.me))) loadPeople();
 };
 
+$("#otd").onchange = (e) => { try { localStorage.setItem("onThisDay", e.target.checked ? "on" : "off"); } catch { /* this visit only */ } };
+
 $("#theme").onchange = (e) => {
   try { localStorage.setItem("theme", e.target.value); } catch { /* storage blocked: keep following the phone */ }
   applyTheme(); // defined in index.html so the theme is set before first paint
@@ -47,6 +51,7 @@ export async function renderSettings() {
   drawPhoto();
   $("#my-name").value = S.people[S.me]?.name ?? "";
   document.querySelector(`#theme input[value="${applyTheme()}"]`).checked = true;
+  $("#otd").checked = showOnThisDay();
   const t = $("#push-text"), b = $("#push-btn");
   b.hidden = true;
   if (!("PushManager" in window)) {

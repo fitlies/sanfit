@@ -5,14 +5,15 @@ import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
 import { renderDiary, enterDiary } from "./diary.js";
 import { renderGames, renderGame, gameChanged } from "./games.js";
+import { renderChatInfo } from "./search.js";
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
 const TABS = ["chats", "todos", "diary", "games", "settings"];
-const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame }; // redrawn on every change
+const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
 const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
-const BACK = { chat: "chats", "diary-entry": "diary", game: "games" }; // where the back button goes
+const BACK = { chat: "chats", "chat-info": "chat", "diary-entry": "diary", game: "games" }; // where the back button goes
 const BADGES = {                                                       // the number on each tab
   "chat-badge": () => S.chats.reduce((n, c) => n + unreadIn(c.id), 0),
   "todo-badge": () => S.todos.filter((t) => !t.done_at && t.assignee === S.me).length,
@@ -40,7 +41,7 @@ onChange(render);
 
 function go(screen) {
   S.screen = screen;
-  S.chatId = null;
+  if (TABS.includes(screen)) S.chatId = null; // back from Chat info keeps the chat open
   render();
   ENTER[screen]?.();
 }
