@@ -173,6 +173,57 @@ nav.tabs svg { width: 26px; height: 26px; }
 .settings p { padding: 4px 16px 12px; color: var(--muted); font-size: 14.5px; }
 .settings .add { padding-top: 6px; }
 
+/* Games */
+:root { --p2: #D99A12; }
+:root[data-theme="dark"] { --p2: #F2C14E; }
+.gkinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.gkind { display: grid; justify-items: center; gap: 8px; padding: 14px 6px 12px; border-radius: 14px; background: var(--in);
+  font-size: 13.5px; font-weight: 600; border: 2px solid transparent; }
+.gkind svg { width: 44px; height: 44px; color: var(--muted); }
+.gkind[aria-expanded="true"] { border-color: var(--accent); }
+.gwho-card { padding: 12px 16px 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.gwho-title { width: 100%; font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+.gwho { padding: 8px 14px; border-radius: 18px; background: var(--chip); font-weight: 500; }
+.row button.tmain { text-align: left; display: grid; gap: 2px; }
+.tsub.yours { color: var(--accent); font-weight: 600; }
+.gpane { display: grid; justify-items: center; align-content: start; gap: 14px; }
+.gplayers { display: flex; gap: 10px; }
+.gchip { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 18px; background: var(--in);
+  border: 2px solid transparent; font-size: 14.5px; }
+.gchip.now { border-color: var(--accent); }
+.gchip b { font-variant-numeric: tabular-nums; }
+.gmark { font-weight: 700; }
+.gmark:empty { width: 12px; height: 12px; border-radius: 50%; }
+.gchip.p0 .gmark { color: var(--accent); background: var(--accent); }
+.gchip.p1 .gmark { color: var(--p2); background: var(--p2); }
+.gchip .gmark:not(:empty) { background: none; }
+.gstatus { font-size: 17px; font-weight: 600; min-height: 24px; }
+.gstatus.yours { color: var(--accent); }
+.board { width: min(100%, 360px); display: grid; gap: 8px; }
+.board.waiting { opacity: .85; }
+.tictactoe { grid-template-columns: repeat(3, 1fr); }
+.cell { aspect-ratio: 1; border-radius: 14px; background: var(--in); font-size: 52px; font-weight: 300; line-height: 1; }
+.cell.p0 { color: var(--accent); }
+.cell.p1 { color: var(--p2); }
+.cell.win { background: var(--out); }
+.connect4 { grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 10px; border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 30%, var(--in)); }
+.hole { aspect-ratio: 1; border-radius: 50%; background: var(--in); box-shadow: inset 0 2px 3px rgba(0,0,0,.15); }
+.hole.p0 { background: var(--accent); }
+.hole.p1 { background: var(--p2); }
+.hole.win { box-shadow: 0 0 0 3px var(--ink); }
+.hole.last { animation: drop .35s cubic-bezier(.3, 0, .6, 1.3); }
+@keyframes drop { from { transform: translateY(-260%); } }
+.memory { grid-template-columns: repeat(4, 1fr); }
+.mcard { aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; font-size: 30px;
+  background: var(--doodle) 0 0/60px, var(--out); transition: transform .2s; }
+.mcard.up { background: var(--in); }
+.mcard img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mcard.got.p0 { box-shadow: 0 0 0 3px var(--accent); }
+.mcard.got.p1 { box-shadow: 0 0 0 3px var(--p2); }
+.gactions { display: flex; gap: 16px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .hole.last { animation: none; } .mcard { transition: none; } }
+
 /* Diary */
 .dpage { --page: var(--wall); --page-ink: var(--ink); --page-muted: var(--muted); --page-card: var(--in); --page-line: var(--line);
   background: var(--page); color: var(--page-ink); }
@@ -416,6 +467,31 @@ nav.tabs svg { width: 26px; height: 26px; }
     </div>
   </section>
 
+  <section id="games" class="screen title-only" hidden>
+    <header><h1>Games</h1></header>
+    <div class="pane">
+      <div class="gkinds" id="game-kinds"></div>
+      <div class="card gwho-card" id="game-who" hidden></div>
+      <div class="card" id="game-list"></div>
+    </div>
+  </section>
+
+  <section id="game" class="screen" hidden>
+    <header>
+      <button class="back" id="game-back" aria-label="Back to games">‹</button>
+      <div><h1 id="game-title"></h1><small id="game-sub"></small></div>
+    </header>
+    <div class="pane gpane">
+      <div class="gplayers" id="game-players"></div>
+      <p class="gstatus" id="game-status" role="status"></p>
+      <div class="board" id="board"></div>
+      <div class="gactions">
+        <button class="btn" id="game-again" hidden>Play again</button>
+        <button class="btn danger" id="game-end">Remove game</button>
+      </div>
+    </div>
+  </section>
+
   <!-- To add an add-on later: add a <section class="screen"> above and a button here with the same data-tab. -->
   <nav class="tabs" id="tabs" hidden>
     <button data-tab="chats" aria-current="page">
@@ -428,6 +504,10 @@ nav.tabs svg { width: 26px; height: 26px; }
     </button>
     <button data-tab="diary">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v18M11 8h4"/></svg>Diary
+    </button>
+    <button data-tab="games">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>Games
+      <span class="badge" id="game-badge" hidden></span>
     </button>
     <button data-tab="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings

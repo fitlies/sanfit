@@ -16,9 +16,10 @@ export const TICK = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" 
 
 export const S = {
   me: null, myEmail: "",
-  people: {}, chats: [], messages: [], reactions: [], todos: [],
+  people: {}, chats: [], messages: [], reactions: [], todos: [], games: [],
   screen: "chats", // login | name-step | chats | chat | todos | settings
   chatId: null,    // the open chat, when screen is "chat"
+  gameId: null,    // the open game, when screen is "game" ("phone" for a game against the phone)
   todoChat: null,  // whose to-do list is showing
   assignee: "",    // who a new to-do is for ("" = anyone)
 };
@@ -28,8 +29,8 @@ export const onChange = (fn) => (redraw = fn);
 export const changed = () => { redraw(); clearTimeout(keepTimer); keepTimer = setTimeout(keepCopy, 2000); };
 
 // ---------- a copy on this phone, so the app opens with no connection and fetches only what's new ----------
-// Chats, messages, reactions, to-dos and names. The diary is not kept here: it needs a connection.
-const KEPT = ["people", "chats", "messages", "reactions", "todos", "todoChat"];
+// Chats, messages, reactions, to-dos, games and names. The diary is not kept here: it needs a connection.
+const KEPT = ["people", "chats", "messages", "reactions", "todos", "games", "todoChat"];
 const copyKey = () => `saved:${S.me}`;
 function keepCopy() {
   if (!S.me || !S.messages.length) return;
@@ -188,5 +189,12 @@ export async function loadTodos() {
   const data = await fetchRows(sb.from("todos").select("*").order("created_at"));
   if (!data) return;
   S.todos = data;
+  changed();
+}
+// shortcut: the 20 most recent games, all fetched again on return (about 1 KB each); fetch only changed ones if lists grow.
+export async function loadGames() {
+  const data = await fetchRows(sb.from("games").select("*").order("updated_at", { ascending: false }).limit(20));
+  if (!data) return;
+  S.games = data;
   changed();
 }

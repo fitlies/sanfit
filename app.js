@@ -1,17 +1,18 @@
 // Entry point: sign-in, which screen is showing, live updates. Each tab lives in its own file.
-import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, restoreCopy, forgetThisPhone } from "./state.js";
+import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, loadGames, restoreCopy, forgetThisPhone } from "./state.js";
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
 import { renderDiary, enterDiary } from "./diary.js";
+import { renderGames, renderGame, gameChanged } from "./games.js";
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
-const TABS = ["chats", "todos", "diary", "settings"];
-const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary }; // redrawn on every change
+const TABS = ["chats", "todos", "diary", "games", "settings"];
+const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame }; // redrawn on every change
 const ENTER = { settings: renderSettings, diary: enterDiary }; // run once when you open the tab
-const BACK = { chat: "chats", "diary-entry": "diary" };      // where the back button goes
+const BACK = { chat: "chats", "diary-entry": "diary", game: "games" }; // where the back button goes
 
 function render() {
   for (const s of document.querySelectorAll("#app > section")) s.hidden = s.id !== S.screen; // every screen is a <section> in #app
@@ -27,6 +28,9 @@ function render() {
   const mine = S.todos.filter((t) => !t.done_at && t.assignee === S.me).length;
   $("#todo-badge").hidden = !mine;
   $("#todo-badge").textContent = mine;
+  const myTurn = S.games.filter((g) => g.turn === S.me).length;
+  $("#game-badge").hidden = !myTurn;
+  $("#game-badge").textContent = myTurn;
 
   LIVE[S.screen]?.();
 }
@@ -91,7 +95,7 @@ sb.auth.getSession().then(({ data }) => { if (!data.session) { S.screen = "login
 async function start() {
   if ((await loadPeople()) === false) return setTimeout(start, 4000); // offline at launch: retry, don't ask for a name again
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
-  await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos()]);
+  await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos(), loadGames()]);
   subscribe();
   if (!TABS.includes(S.screen) && !BACK[S.screen]) go("chats"); // coming from sign-in; otherwise stay where the saved copy let you go
 }
@@ -115,6 +119,7 @@ function subscribe() {
     .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, loadReactions)
     .on("postgres_changes", { event: "*", schema: "public", table: "todos" }, loadTodos)
     .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, loadPeople)
+    .on("postgres_changes", { event: "*", schema: "public", table: "games" }, gameChanged)
     .subscribe();
 }
 // Phones drop the connection in the background; catch up on return.
@@ -123,4 +128,5 @@ document.addEventListener("visibilitychange", () => {
   loadMessages().then(markRead);
   loadReactions();
   loadTodos();
+  loadGames();
 });
