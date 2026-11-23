@@ -3,16 +3,16 @@ const APP_CACHE = "sanfit-app";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
-// The app's files and its one library: the network first, so updates arrive as before; the saved copy when offline.
+// The app's own files (its library is one of them, in vendor/): the network first, so updates arrive as before; the saved copy when offline.
 // shortcut: no timeout, so on a very weak signal the app waits for the network; add one if opening feels slow.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || (url.origin !== location.origin && url.hostname !== "esm.sh")) return;
+  if (e.request.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith(caches.open(APP_CACHE).then(async (cache) => {
     try {
       // The app's own files always check with the server (a tiny "not changed" reply when they haven't), so a new
       // index.html never runs with an old app.js the phone kept from before.
-      const res = await fetch(e.request, url.origin === location.origin ? { cache: "no-cache" } : undefined);
+      const res = await fetch(e.request, { cache: "no-cache" });
       if (res.ok) cache.put(e.request, res.clone());
       return res;
     } catch {

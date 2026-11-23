@@ -1,5 +1,5 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.2"; // exact version: a new release can't change the app unseen
+import { createClient } from "./vendor/supabase-js-2.119.2.js"; // a copy kept in the app: no outside server can change it (tools/build-supabase-js.sh)
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { initial, fitSize } from "./lib.js";
 
