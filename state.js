@@ -1,5 +1,5 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.2"; // exact version: a new release can't change the app unseen
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { initial, fitSize } from "./lib.js";
 
@@ -109,8 +109,11 @@ async function photoFromPhoneOrDownload(bucket, path) {
     if (!res?.ok) return null;
     await store?.put(name, res.clone()).catch(() => {});
   }
-  return URL.createObjectURL(await res.blob());
+  const blob = await res.blob();
+  // Only real image types become a link on this site; an SVG or HTML "photo" could run code here if opened.
+  return PHOTO_TYPES.has(blob.type) ? URL.createObjectURL(blob) : null;
 }
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 
 // A private photo as an <img>; tap it to see it full screen.
 export function photo(bucket, path, alt = "") {
