@@ -1,7 +1,7 @@
 // Settings tab: profile photo, name, appearance, notifications, sign out. Drawn when you open the tab, not on every update.
 import { b64urlToBytes } from "./lib.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { S, sb, $, save, alertBox, loadPeople, fillAvatar, uploadPhoto, pref, setPref } from "./state.js";
+import { S, sb, $, save, alertBox, loadPeople, fillAvatar, uploadPhoto, pref, setPref, phoneSubs } from "./state.js";
 import "./export.js"; // the "Download everything" button
 
 // ---------- profile photo ----------
@@ -83,8 +83,7 @@ $("#push-btn").onclick = async () => {
 // Offline, signing out fails and keeps you signed in, so say so instead of doing nothing. Trying again is safe.
 const signOut = async (scope) => { const { error } = await sb.auth.signOut({ scope }); if (error) alertBox(error); };
 $("#signout").onclick = async () => {
-  const sub = await currentSub();
-  if (sub) await sb.from("push_subs").delete().eq("endpoint", sub.endpoint);
+  for (const sub of await phoneSubs()) await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); // v1 and v2 alerts on this phone
   signOut("local"); // just this phone
 };
 $("#signout-all").onclick = async () => {

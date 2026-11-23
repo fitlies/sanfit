@@ -108,11 +108,14 @@ $("#login-form").onsubmit = async (e) => {
 if (location.hash.includes("error_code")) {
   $("#login-err").textContent = "That link has expired or was already used. If you've confirmed before, just sign in.";
   history.replaceState(null, "", location.pathname);
+} else if (location.hash.includes("access_token")) {
+  history.replaceState(null, "", location.pathname); // a confirm link: the app ignores its tokens (sign in with your password), so don't keep them in the address bar
 }
 
 let live = null;
 sb.auth.onAuthStateChange((event, session) => {
   if (session?.user && session.user.id !== S.me) {
+    if (S.me) return forgetThisPhone().finally(() => location.reload()); // someone else signed in on this phone (another tab): start clean as them
     S.me = session.user.id;
     S.myEmail = session.user.email.toLowerCase();
     if (restoreCopy()) render(); // show what's on this phone straight away, then catch up

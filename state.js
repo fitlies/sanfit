@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.2"; // 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { initial, fitSize } from "./lib.js";
 
-export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Sign-in is by password only: a link carrying someone else's session can't sign this phone into their account.
+export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { detectSessionInUrl: false } });
 export const $ = (s) => document.querySelector(s);
 export const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -24,7 +25,7 @@ export const S = {
   assignee: "",    // who a new to-do is for ("" = anyone)
 };
 
-let redraw = () => {}, keepTimer = null;
+let redraw = () => {}, keepTimer = null, forgetting = false;
 export const onChange = (fn) => (redraw = fn);
 export const changed = () => { redraw(); clearTimeout(keepTimer); keepTimer = setTimeout(keepCopy, 2000); };
 
@@ -44,7 +45,7 @@ export const setPref = (key, value) => { try { value == null ? localStorage.remo
 const KEPT = ["people", "chats", "messages", "reactions", "todos", "games", "todoChat"];
 const copyKey = () => `saved:${S.me}`;
 function keepCopy() {
-  if (!S.me || !S.messages.length) return;
+  if (forgetting || !S.me || !S.messages.length) return; // never write a copy back while (or after) the phone is being cleared
   try { localStorage.setItem(copyKey(), JSON.stringify(Object.fromEntries(KEPT.map((k) => [k, S[k]])))); } catch { /* storage full or blocked: next open just loads everything */ }
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepCopy(); }); // closing the app doesn't wait
@@ -57,13 +58,19 @@ export function restoreCopy() {
     return true;
   } catch { return false; }
 }
-// On sign-out: remove every saved copy, cached photo and alert subscription from this phone.
+// Every alert subscription on this phone, from both Sanfit versions (/sanfit/ and /sanfit/v2/ each have their own).
+export async function phoneSubs() {
+  const regs = await navigator.serviceWorker?.getRegistrations?.().catch(() => []) ?? [];
+  return (await Promise.all(regs.map((r) => r.pushManager?.getSubscription().catch(() => null)))).filter(Boolean);
+}
+// On sign-out, or when someone else signs in: remove every saved copy, diary PIN, cached photo and alert
+// subscription from this phone. The page reloads straight after, so keepCopy stays off from here on.
 export async function forgetThisPhone() {
+  forgetting = true;
   clearTimeout(keepTimer);
-  try { for (const k of Object.keys(localStorage)) if (k.startsWith("saved:")) localStorage.removeItem(k); } catch { /* nothing stored */ }
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("saved:") || k.startsWith("diaryPin:")) localStorage.removeItem(k); } catch { /* nothing stored */ }
   await window.caches?.delete(PHOTO_CACHE).catch(() => {});
-  const reg = await navigator.serviceWorker?.getRegistration().catch(() => null);
-  await (await reg?.pushManager?.getSubscription())?.unsubscribe().catch(() => {}); // so Settings offers "Turn on" again
+  for (const sub of await phoneSubs()) await sub.unsubscribe().catch(() => {}); // both versions, so Settings offers "Turn on" again
 }
 
 // ---------- who's who ----------
