@@ -125,3 +125,29 @@ export function splitMatches(text, q) {
   if (i < text.length) out.push([text.slice(i), false]);
   return out;
 }
+
+// ---------- loading ----------
+// The newest `max` messages with no read tick. Another phone may have read them, so ask the server again.
+export const unreadIds = (messages, max = 200) => messages.filter((m) => !m.read_at).slice(-max).map((m) => m.id);
+
+// New rows and read ticks merged into the saved messages, oldest first, newest `keep` kept.
+export function mergeMessages(old, fresh, reads, keep = 500) {
+  const byId = new Map(old.map((m) => [m.id, m]));
+  for (const m of fresh) byId.set(m.id, m);
+  for (const r of reads) if (byId.has(r.id)) byId.get(r.id).read_at = r.read_at;
+  return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)).slice(-keep);
+}
+
+// Wait before the next start-up try: 4 s, then 8, 16, 32, and 60 s at most.
+export const retryDelay = (failures) => Math.min(4000 * 2 ** failures, 60000);
+
+// Every row of a query, 1,000 at a time (the most the server sends in one go). The query needs a stable order.
+export async function every(query) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await query().range(from, from + 999);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < 1000) return rows;
+  }
+}

@@ -1,5 +1,6 @@
 // Entry point: sign-in, which screen is showing, live updates. Each tile's screen lives in its own file.
 import { S, sb, $, onChange, alertBox, unreadIn, myTodos, myTurns, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, loadGames, restoreCopy, forgetThisPhone } from "./state.js";
+import { retryDelay } from "./lib.js";
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
@@ -125,8 +126,19 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 sb.auth.getSession().then(({ data }) => { if (!data.session) { S.screen = "login"; render(); } });
 
-async function start() {
-  if ((await loadPeople()) === false) return setTimeout(start, 4000); // offline at launch: retry, don't ask for a name again
+let startFailures = 0, startTimer;
+// Back online while waiting for the next try: don't make the person wait out a long delay.
+addEventListener("online", () => { if (startFailures) { clearTimeout(startTimer); start(); } });
+let starting = false;
+async function start() { // one start at a time: the retry timer, the online event and sign-in can all ask for it
+  if (starting) return;
+  starting = true;
+  try { await startOnce(); } finally { starting = false; }
+}
+async function startOnce() {
+  // Offline or the server is down at launch: retry (slower each time, one error toast), don't ask for a name again.
+  if ((await loadPeople(startFailures > 0)) === false) return void (startTimer = setTimeout(start, retryDelay(startFailures++)));
+  startFailures = 0;
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
   await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos(), loadGames()]);
   subscribe();
@@ -151,7 +163,7 @@ function subscribe() {
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, loadReactions)
     .on("postgres_changes", { event: "*", schema: "public", table: "todos" }, loadTodos)
-    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, loadPeople)
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => loadPeople())
     .on("postgres_changes", { event: "*", schema: "public", table: "games" }, gameChanged)
     .subscribe();
 }

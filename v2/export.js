@@ -1,18 +1,7 @@
 // "Download everything": your chats, to-dos, games and diary in one file on this phone.
 // Photos are listed by name only. The file isn't locked, so it asks first.
-import { localDate } from "./lib.js";
+import { localDate, every } from "./lib.js";
 import { S, sb, $, alertBox } from "./state.js";
-
-// Every row, 1,000 at a time (the most the server sends in one go).
-async function every(query) {
-  const rows = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await query().range(from, from + 999);
-    if (error) throw error;
-    rows.push(...data);
-    if (data.length < 1000) return rows;
-  }
-}
 
 $("#export").onclick = async () => {
   if (!confirm("Anyone who opens this file can read your diary. Keep it somewhere safe.")) return;

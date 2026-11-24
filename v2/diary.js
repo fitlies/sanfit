@@ -1,7 +1,7 @@
 // Diary tab: a private diary for each person. Entries by date with a mood and photos,
 // a mood calendar, a PIN lock on this phone, and page themes. Only the writer can read entries.
 // Signing out reloads the app, so everything here belongs to the person signed in.
-import { localDate, monthGrid, days, fromLocalDate, monthLabel, weekday } from "./lib.js";
+import { localDate, monthGrid, days, fromLocalDate, monthLabel, weekday, every } from "./lib.js";
 import { MOODS, searchEntries, onThisDay, moodSummary, binDaysLeft, BIN_DAYS } from "./diary-lib.js";
 import { S, sb, $, el, changed, open, save, alertBox, photo, uploadPhoto, pref, setPref } from "./state.js";
 
@@ -18,9 +18,13 @@ let picking = false;       // the photo picker is open (on Android that briefly 
 
 // ---------- loading ----------
 async function loadEntries() {
-  const { data, error } = await sb.from("diary_entries").select("*")
-    .order("entry_date", { ascending: false }).order("created_at", { ascending: false });
-  if (error) return alertBox(error);
+  let data;
+  try {
+    data = await every(() => sb.from("diary_entries").select("*")
+      .order("entry_date", { ascending: false }).order("created_at", { ascending: false }).order("id"));
+  } catch (error) {
+    return alertBox(error);
+  }
   entries = data.filter((e) => !e.deleted_at);
   binned = data.filter((e) => e.deleted_at && binDaysLeft(e.deleted_at) > 0);
   changed();

@@ -1,5 +1,6 @@
 /* Sanfit styles. Colours come from the variables at the top; dark mode swaps them. */
 :root {
+  color-scheme: light; /* native controls and scrollbars follow the theme; data-theme is set before first paint */
   --accent: #6A3FA0; --on-accent: #fff;
   --ink: #1D1A22; --muted: #6C6577; --line: #DDD7E6;
   --bar: rgba(248,246,251,.94); --wall: #ECE8F2; --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%236A3FA0' stroke-opacity='.08' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M20 24c-4-6-13-2-9 5l9 8 9-8c4-7-5-11-9-5z'/%3E%3Ccircle cx='86' cy='22' r='6'/%3E%3Cpath d='M60 60l4 8 8 1-6 6 2 8-8-4-8 4 2-8-6-6 8-1z'/%3E%3Cpath d='M14 92q8-8 16 0t16 0'/%3E%3Cpath d='M92 88h16M100 80v16'/%3E%3C/svg%3E");
@@ -9,6 +10,7 @@
   color: var(--ink); -webkit-text-size-adjust: 100%;
 }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --accent: #B894F2; --on-accent: #1A1222;
   --ink: #ECE8F2; --muted: #9C95A8; --line: #2E2936;
   --bar: rgba(24,21,29,.94); --wall: #110E15; --doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='none' stroke='%23B894F2' stroke-opacity='.08' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M20 24c-4-6-13-2-9 5l9 8 9-8c4-7-5-11-9-5z'/%3E%3Ccircle cx='86' cy='22' r='6'/%3E%3Cpath d='M60 60l4 8 8 1-6 6 2 8-8-4-8 4 2-8-6-6 8-1z'/%3E%3Cpath d='M14 92q8-8 16 0t16 0'/%3E%3Cpath d='M92 88h16M100 80v16'/%3E%3C/svg%3E");
@@ -254,11 +256,11 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
 /* Diary */
 .dpage { --page: var(--wall); --page-ink: var(--ink); --page-muted: var(--muted); --page-card: var(--in); --page-line: var(--line);
   background: var(--page); color: var(--page-ink); }
-[data-dtheme="paper"] .dpage{ --page: #F6F0E2; --page-ink: #2B2620; --page-muted: #857B6B; --page-card: #FFFCF4; --page-line: #E4D9C2; }
-[data-dtheme="rose"] .dpage { --page: #FBEDEF; --page-ink: #3A2328; --page-muted: #96717A; --page-card: #FFF7F8; --page-line: #F0D3D9; }
-[data-dtheme="mint"] .dpage { --page: #E7F4ED; --page-ink: #1F3329; --page-muted: #6A8B79; --page-card: #F6FCF8; --page-line: #CDE5D8; }
-[data-dtheme="sky"] .dpage  { --page: #E9F0FA; --page-ink: #1E2A3A; --page-muted: #6C7F96; --page-card: #F7FAFE; --page-line: #D1DEEF; }
-[data-dtheme="night"] .dpage{ --page: #191A2E; --page-ink: #E7E6F5; --page-muted: #9A98B8; --page-card: #24254A; --page-line: #33355E; }
+[data-dtheme="paper"] .dpage{ color-scheme: light; --page: #F6F0E2; --page-ink: #2B2620; --page-muted: #857B6B; --page-card: #FFFCF4; --page-line: #E4D9C2; }
+[data-dtheme="rose"] .dpage { color-scheme: light; --page: #FBEDEF; --page-ink: #3A2328; --page-muted: #96717A; --page-card: #FFF7F8; --page-line: #F0D3D9; }
+[data-dtheme="mint"] .dpage { color-scheme: light; --page: #E7F4ED; --page-ink: #1F3329; --page-muted: #6A8B79; --page-card: #F6FCF8; --page-line: #CDE5D8; }
+[data-dtheme="sky"] .dpage  { color-scheme: light; --page: #E9F0FA; --page-ink: #1E2A3A; --page-muted: #6C7F96; --page-card: #F7FAFE; --page-line: #D1DEEF; }
+[data-dtheme="night"] .dpage{ color-scheme: dark; --page: #191A2E; --page-ink: #E7E6F5; --page-muted: #9A98B8; --page-card: #24254A; --page-line: #33355E; }
 #diary header h1 { flex: 1; }
 .tools { display: flex; gap: 6px; }
 .icon-btn.on { background: var(--chip); }

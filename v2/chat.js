@@ -249,7 +249,13 @@ text.oninput = () => {
   $("#send").disabled = !text.value.trim();
 };
 text.onkeydown = (e) => {
-  if (e.key === "Enter" && !e.shiftKey && matchMedia("(hover: hover)").matches) { e.preventDefault(); $("#composer").requestSubmit(); }
+  if (e.key === "Enter" && !e.shiftKey && matchMedia("(hover: hover)").matches) {
+    e.preventDefault();
+    // Enter that confirms an IME conversion (Chinese/Japanese/Korean) must not send. isComposing covers Chrome and
+    // Firefox; keyCode 229 covers Safari, where isComposing is already false by the time this runs. Keep both.
+    if (e.isComposing || e.keyCode === 229) return;
+    $("#composer").requestSubmit();
+  }
 };
 $("#send").onpointerdown = (e) => e.preventDefault(); // keep the keyboard up when tapping send, like WhatsApp
 $("#composer").onsubmit = async (e) => {

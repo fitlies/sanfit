@@ -1,7 +1,7 @@
 // Shared data and helpers. Loaders update S, then call changed() so the current screen redraws.
 import { createClient } from "./vendor/supabase-js-2.119.2.js"; // a copy kept in the app: no outside server can change it (tools/build-supabase-js.sh)
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { initial, fitSize, todosFor, splitMatches, snippetAround, dayLabel, timeLabel } from "./lib.js";
+import { initial, fitSize, todosFor, splitMatches, snippetAround, dayLabel, timeLabel, unreadIds, mergeMessages, every } from "./lib.js";
 
 // Sign-in is by password only: a link carrying someone else's session can't sign this phone into their account.
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { detectSessionInUrl: false } });
@@ -206,15 +206,18 @@ export async function save(query) {
 }
 
 // ---------- loading ----------
-async function fetchRows(query) {
+async function fetchRows(query, quiet = false) {
   const { data, error } = await query;
   if (!error) return data;
+  if (quiet) return null; // a retry that already told the person
   if (navigator.onLine) alertBox(error);
   else toast("You're offline. Showing what's saved on this phone.");
   return null;
 }
-export async function loadPeople() {
-  const data = await fetchRows(sb.from("profiles").select("*"));
+// A list that may pass 1,000 rows, read page by page, in the { data, error } shape fetchRows expects.
+const allRows = (query) => every(query).then((data) => ({ data, error: null }), (error) => ({ data: null, error }));
+export async function loadPeople(quiet = false) {
+  const data = await fetchRows(sb.from("profiles").select("*"), quiet);
   if (!data) return false;
   S.people = Object.fromEntries(data.map((p) => [p.id, p]));
   changed();
@@ -238,28 +241,25 @@ export async function loadMessages() {
     return changed();
   }
   // Only what's new: messages from a minute before the last one we have (in case two landed together),
-  // and read ticks on your own messages that were still unread.
+  // and read ticks on messages still unread here (your own, and others' that another phone of yours may have read).
   const since = new Date(Date.parse(last.created_at) - 60000).toISOString();
-  const unread = S.messages.filter((m) => m.sender === S.me && !m.read_at).slice(-200).map((m) => m.id);
+  const unread = unreadIds(S.messages);
   const [fresh, reads] = await Promise.all([
     fetchRows(sb.from("messages").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(500)), // the newest 500, if away long
     unread.length ? fetchRows(sb.from("messages").select("id, read_at").in("id", unread).not("read_at", "is", null)) : [],
   ]);
   if (!fresh || !reads) return;
-  const byId = new Map(S.messages.map((m) => [m.id, m]));
-  for (const m of fresh) byId.set(m.id, m);
-  for (const r of reads) if (byId.has(r.id)) byId.get(r.id).read_at = r.read_at;
-  S.messages = [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)).slice(-500);
+  S.messages = mergeMessages(S.messages, fresh, reads);
   changed();
 }
 export async function loadReactions() {
-  const data = await fetchRows(sb.from("reactions").select("*"));
+  const data = await fetchRows(allRows(() => sb.from("reactions").select("*").order("message_id").order("user_id")));
   if (!data) return;
   S.reactions = data;
   changed();
 }
 export async function loadTodos() {
-  const data = await fetchRows(sb.from("todos").select("*").order("created_at"));
+  const data = await fetchRows(allRows(() => sb.from("todos").select("*").order("created_at").order("id")));
   if (!data) return;
   S.todos = data;
   changed();
