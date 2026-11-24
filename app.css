@@ -41,7 +41,8 @@ header small { display: block; font-size: 12.5px; color: var(--muted); }
 
 /* Chat */
 #msgs { flex: 1; overflow-y: auto; padding: 8px 12px 12px; background: var(--doodle) 0 0/120px, var(--wall);
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; position: relative; }
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; position: relative;
+  overflow-anchor: none; } /* Chrome (Android) moves the scroll position itself when photos load; the chat pins the bottom on its own */
 .day { margin: 10px auto 6px; width: fit-content; padding: 4px 12px; border-radius: 8px; font-size: 12.5px;
   font-weight: 500; background: var(--bar); color: var(--muted); box-shadow: 0 1px 1px rgba(0,0,0,.06); }
 .empty { text-align: center; color: var(--muted); margin-top: 40%; }

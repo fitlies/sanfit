@@ -3,7 +3,7 @@ import { S, sb, $, onChange, alertBox, unreadIn, myTodos, myTurns, loadPeople, l
 import { retryDelay } from "./lib.js";
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
-import { renderSettings } from "./settings.js";
+import { renderSettings, syncAlerts } from "./settings.js";
 import { renderDiary, enterDiary } from "./diary.js";
 import { renderGames, renderGame, gameChanged } from "./games.js";
 import { renderChatInfo } from "./chat-info.js";
@@ -142,6 +142,7 @@ async function startOnce() {
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
   await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos(), loadGames()]);
   subscribe();
+  syncAlerts(); // a phone that has alerts on but the database lost them gets them back, without a visit to Settings
   if (BARE.includes(S.screen)) go("home"); // coming from sign-in or the name step; otherwise stay where you are
 }
 

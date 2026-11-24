@@ -47,6 +47,18 @@ async function currentSub() {
   return "serviceWorker" in navigator ? (await navigator.serviceWorker.ready).pushManager?.getSubscription() : null;
 }
 
+// The phone can hold a working subscription the database no longer has (an old sign-out removed it, or a save
+// failed), and then nobody gets sent anything. Put it back; saving the same subscription twice changes nothing.
+export async function syncAlerts() {
+  try {
+    if (!S.me || !("PushManager" in window) || Notification.permission !== "granted") return;
+    const sub = await currentSub();
+    if (!sub) return;
+    const { error } = await sb.from("push_subs").upsert({ endpoint: sub.endpoint, sub: sub.toJSON(), user_id: S.me });
+    if (error) console.warn("alerts: could not save this phone's subscription:", error.message);
+  } catch (err) { console.warn("alerts: check failed:", err?.message); } // quiet on purpose: it runs at every start
+}
+
 export async function renderSettings() {
   drawPhoto();
   $("#my-name").value = S.people[S.me]?.name ?? "";
@@ -54,6 +66,7 @@ export async function renderSettings() {
   $("#otd").checked = pref("onThisDay") !== "off";
   const t = $("#push-text"), b = $("#push-btn");
   b.hidden = true;
+  $("#push-test").hidden = $("#push-reset").hidden = true;
   if (!("PushManager" in window)) {
     // iPhone only allows alerts for apps opened from the Home Screen.
     t.textContent = "To get alerts, open Sanfit from your Home Screen. iPhone: in Safari tap Share, then Add to Home Screen. Android: in Chrome tap ⋮, then Add to Home screen.";
@@ -61,6 +74,7 @@ export async function renderSettings() {
     t.textContent = "Notifications are blocked. Turn them on in your phone's Settings, under Notifications for Sanfit (or Chrome).";
   } else if (Notification.permission === "granted" && (await currentSub())) {
     t.textContent = "On. You'll get alerts for new messages and to-dos.";
+    $("#push-test").hidden = $("#push-reset").hidden = false;
   } else {
     t.textContent = "Get alerts for new messages, to-dos given to you, and to-dos that come due.";
     b.hidden = false;
@@ -70,6 +84,33 @@ export async function renderSettings() {
 $("#push-btn").onclick = async () => {
   if ((await Notification.requestPermission()) !== "granted") return renderSettings();
   try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(VAPID_PUBLIC_KEY) });
+    await save(sb.from("push_subs").upsert({ endpoint: sub.endpoint, sub: sub.toJSON(), user_id: S.me }));
+  } catch (err) {
+    alertBox(err);
+  }
+  renderSettings();
+};
+
+// A notification made on this phone, with no server involved: if it shows, the phone and the app are fine
+// and the problem is on the way there (no saved subscription, or the phone's push service).
+$("#push-test").onclick = async () => {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification("Sanfit test", { body: "If you can see this, alerts can show on this phone.", icon: "icon-192.png", tag: "sanfit-test" });
+  } catch (err) {
+    alertBox(err);
+  }
+};
+
+// Throw away this phone's alert subscription and make a fresh one.
+$("#push-reset").onclick = async () => {
+  try {
+    for (const sub of await phoneSubs()) {
+      await sb.from("push_subs").delete().eq("endpoint", sub.endpoint);
+      await sub.unsubscribe().catch(() => {});
+    }
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(VAPID_PUBLIC_KEY) });
     await save(sb.from("push_subs").upsert({ endpoint: sub.endpoint, sub: sub.toJSON(), user_id: S.me }));

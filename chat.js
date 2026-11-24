@@ -41,6 +41,8 @@ export function openChat(id, { at = null, rows = null } = {}) {
   clearReply();
   open("chat");
   markRead();
+  // Once the tiles above have shrunk and the first photos have started to load, pin the bottom again.
+  if (!at) setTimeout(() => { if (stick && S.screen === "chat" && S.chatId === id) { fit(); scrollBottom(); } }, 350); // fit(): the app height, in case no resize came yet
 }
 
 // Opens a chat at a message search found. If it's older than the messages kept on the phone, fetch it with the ones around it.
@@ -65,8 +67,15 @@ $("#back").onclick = () => history.back();
 
 // ---------- one chat ----------
 const box = $("#msgs");
-const scrollBottom = () => (box.scrollTop = box.scrollHeight);
-box.addEventListener("scroll", () => (stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80));
+// The scroll event of our own jump to the bottom arrives a frame later; if a photo has grown the page by then it
+// would read "not at the bottom" and switch pinning off for good. So scroll events are ignored for two frames.
+let pinning = false;
+const scrollBottom = () => {
+  pinning = true;
+  box.scrollTop = box.scrollHeight;
+  requestAnimationFrame(() => requestAnimationFrame(() => (pinning = false)));
+};
+box.addEventListener("scroll", () => { if (!pinning) stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80; });
 const fit = () => { $("#app").style.height = (visualViewport?.height ?? innerHeight) + "px"; scrollTo(0, 0); if (stick) scrollBottom(); };
 visualViewport?.addEventListener("resize", fit); // keep the composer above the keyboard
 
@@ -94,7 +103,8 @@ export function renderChat() {
     box.append(bubble(m, m.sender !== lastSender));
     lastSender = m.sender;
   }
-  if (stick) scrollBottom(); else box.scrollTop = top;
+  if (stick) { scrollBottom(); requestAnimationFrame(() => stick && scrollBottom()); } // again once the browser has laid everything out
+  else box.scrollTop = top;
   if (pendingJump) { jumpTo(pendingJump, "instant"); pendingJump = null; } // instant: the next redraw would stop a smooth scroll
 }
 
