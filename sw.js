@@ -1,5 +1,5 @@
 // Service worker: push notifications, and a copy of the app's own files so Sanfit opens with no connection.
-const APP_CACHE = "sanfit-app";
+const APP_CACHE = "sanfit-app"; // the app at the root address (v2 became the main app on 2026-11-24; the old v1 files are in git history)
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
@@ -26,7 +26,8 @@ self.addEventListener("push", (e) => {
   e.waitUntil(self.registration.showNotification(d.title || "Sanfit", {
     body: d.body || "New message",
     icon: "icon-192.png",
-    tag: "sanfit-chat",
+    tag: d.tag || "sanfit-chat", // the push function names what the alert is about; an older one sends none
+    renotify: true, // a new alert with the same tag still makes a sound instead of replacing the old one silently
   }));
 });
 

@@ -81,7 +81,7 @@ function startSolo(kind) {
   solo = { id: PHONE, kind, state: fresh(kind, [S.me, PHONE], null) };
   openGame(PHONE);
 }
-function openGame(id) {
+export function openGame(id) {
   S.gameId = id;
   open("game");
 }

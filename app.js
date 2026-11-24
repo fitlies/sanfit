@@ -1,30 +1,41 @@
-// Entry point: sign-in, which screen is showing, live updates. Each tab lives in its own file.
-import { S, sb, $, onChange, alertBox, unreadIn, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, loadGames, restoreCopy, forgetThisPhone } from "./state.js";
+// Entry point: sign-in, which screen is showing, live updates. Each tile's screen lives in its own file.
+import { S, sb, $, onChange, alertBox, unreadIn, myTodos, myTurns, loadPeople, loadChats, loadMessages, loadReactions, loadTodos, loadGames, restoreCopy, forgetThisPhone } from "./state.js";
+import { retryDelay } from "./lib.js";
 import { renderChatList, renderChat, addMsg, markRead } from "./chat.js";
 import { renderTodos } from "./todos.js";
 import { renderSettings } from "./settings.js";
 import { renderDiary, enterDiary } from "./diary.js";
 import { renderGames, renderGame, gameChanged } from "./games.js";
-import { renderChatInfo } from "./search.js";
+import { renderChatInfo } from "./chat-info.js";
+import { renderHome, renderTop } from "./home.js";
+import { renderFind, clearFind } from "./find.js";
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
 // ---------- one redraw for every change ----------
-const TABS = ["chats", "todos", "diary", "games", "settings"];
-const LIVE = { chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
-const ENTER = { settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (chat: back from Chat info)
-const BACK = { chat: "chats", "chat-info": "chat", "diary-entry": "diary", game: "games" }; // where the back button goes
-const BADGES = {                                                       // the number on each tab
+// Everything happens on the home screen: the greeting and tiles stay on top, and the tapped tile's screen opens below.
+const TABS = [...document.querySelectorAll("#top [data-tab]")].map((b) => b.dataset.tab); // the tiles, plus your photo for Settings
+const BARE = ["login", "name-step"]; // the only screens without the tiles
+const LIVE = { home: () => renderHome(openTile), search: () => renderFind(openTile), chats: renderChatList, chat: renderChat, todos: renderTodos, diary: renderDiary, games: renderGames, game: renderGame, "chat-info": renderChatInfo }; // redrawn on every change
+const ENTER = { home: clearFind, settings: renderSettings, diary: enterDiary, chat: markRead }; // run on arrival (home: an empty search bar; chat: back from Chat info)
+const ROOTS = ["home", "search"]; // screens a tile opens on top of, so back returns to them
+const INSIDE = { chat: "chats", "chat-info": "chats", "diary-entry": "diary", game: "games" }; // screens inside a tab, and the tile that stays lit
+const BADGES = {                                                       // the number on each tile
   "chat-badge": () => S.chats.reduce((n, c) => n + unreadIn(c.id), 0),
-  "todo-badge": () => S.todos.filter((t) => !t.done_at && t.assignee === S.me).length,
-  "game-badge": () => S.games.filter((g) => g.turn === S.me).length,
+  "todo-badge": () => myTodos().length,
+  "game-badge": () => myTurns().length,
 };
 
 function render() {
   for (const s of document.querySelectorAll("#app > section")) s.hidden = s.id !== S.screen; // every screen is a <section> in #app
-  $("#tabs").hidden = !TABS.includes(S.screen);
-  document.querySelectorAll("#tabs button").forEach((b) =>
-    b.dataset.tab === S.screen ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("#top").hidden = BARE.includes(S.screen);
+  $("#top").classList.toggle("slim", !!INSIDE[S.screen]); // inside a chat, entry or game: the tiles shrink to a strip
+  $("#top").classList.toggle("searching", S.screen === "search"); // searching: only the search bar stays on top
+  $("#find-cancel").hidden = S.screen !== "search";
+  const lit = INSIDE[S.screen] ?? S.screen;
+  document.querySelectorAll("#top [data-tab]").forEach((b) =>
+    b.dataset.tab === lit ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  renderTop();
 
   const counts = Object.fromEntries(Object.entries(BADGES).map(([id, count]) => [id, count()]));
   for (const [id, n] of Object.entries(counts)) {
@@ -45,8 +56,25 @@ function go(screen) {
   render();
   ENTER[screen]?.();
 }
-$("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
-window.onpopstate = () => { if (BACK[S.screen]) go(BACK[S.screen]); }; // back button / Android back
+
+// Back (Android, or a ‹ button) returns to the screen saved in that history entry; see open() in state.js.
+const depth = () => history.state?.depth ?? 0;
+window.onpopstate = (e) => go(e.state?.screen ?? "home");
+history.replaceState({ screen: "home", depth: 0 }, ""); // the app always starts on home; after a reload the entry would keep its old screen
+
+// Back to home: the first history entry. Used by the lit tile and by Cancel in search.
+const closeTile = () => (depth() ? history.go(-depth()) : go("home"));
+// A tile (or search) opened from home or search adds a history entry, so back returns there.
+// Switching from one tile to another swaps the entry instead. Tapping the lit tile closes it.
+function openTile(tab) {
+  if (S.screen === tab) return closeTile();
+  if (ROOTS.includes(S.screen)) history.pushState({ screen: tab, depth: depth() + 1 }, "");
+  else history.replaceState({ screen: tab, depth: depth() }, "");
+  go(tab);
+}
+$("#top").onclick = (e) => { const b = e.target.closest("[data-tab]"); if (b) openTile(b.dataset.tab); };
+$("#find-q").onfocus = () => { if (S.screen !== "search") openTile("search"); };
+$("#find-cancel").onclick = closeTile;
 
 // ---------- sign-in ----------
 let signingUp = false;
@@ -98,12 +126,23 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 sb.auth.getSession().then(({ data }) => { if (!data.session) { S.screen = "login"; render(); } });
 
-async function start() {
-  if ((await loadPeople()) === false) return setTimeout(start, 4000); // offline at launch: retry, don't ask for a name again
+let startFailures = 0, startTimer;
+// Back online while waiting for the next try: don't make the person wait out a long delay.
+addEventListener("online", () => { if (startFailures) { clearTimeout(startTimer); start(); } });
+let starting = false;
+async function start() { // one start at a time: the retry timer, the online event and sign-in can all ask for it
+  if (starting) return;
+  starting = true;
+  try { await startOnce(); } finally { starting = false; }
+}
+async function startOnce() {
+  // Offline or the server is down at launch: retry (slower each time, one error toast), don't ask for a name again.
+  if ((await loadPeople(startFailures > 0)) === false) return void (startTimer = setTimeout(start, retryDelay(startFailures++)));
+  startFailures = 0;
   if (!S.people[S.me]) { S.screen = "name-step"; return render(); }
   await Promise.all([loadChats(), loadMessages(), loadReactions(), loadTodos(), loadGames()]);
   subscribe();
-  if (!TABS.includes(S.screen) && !BACK[S.screen]) go("chats"); // coming from sign-in or the name step; otherwise stay where you are
+  if (BARE.includes(S.screen)) go("home"); // coming from sign-in or the name step; otherwise stay where you are
 }
 
 $("#name-form").onsubmit = async (e) => {
@@ -124,7 +163,7 @@ function subscribe() {
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, loadReactions)
     .on("postgres_changes", { event: "*", schema: "public", table: "todos" }, loadTodos)
-    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, loadPeople)
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => loadPeople())
     .on("postgres_changes", { event: "*", schema: "public", table: "games" }, gameChanged)
     .subscribe();
 }
