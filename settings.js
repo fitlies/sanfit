@@ -69,7 +69,7 @@ export async function renderSettings() {
   $("#push-test").hidden = $("#push-reset").hidden = true;
   if (!("PushManager" in window)) {
     // iPhone only allows alerts for apps opened from the Home Screen.
-    t.textContent = "To get alerts, open Sanfit from your Home Screen. iPhone: in Safari tap Share, then Add to Home Screen. Android: in Chrome tap ⋮, then Add to Home screen.";
+    t.textContent = "To get alerts, open Sanfit from your Home Screen. iPhone: in Safari tap Share, then Add to Home Screen. Android: in Chrome tap ⋮, then Install and create shortcut, then Install.";
   } else if (Notification.permission === "denied") {
     t.textContent = "Notifications are blocked. Turn them on in your phone's Settings, under Notifications for Sanfit (or Chrome).";
   } else if (Notification.permission === "granted" && (await currentSub())) {
