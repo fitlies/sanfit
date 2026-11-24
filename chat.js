@@ -292,9 +292,8 @@ $("#file").onchange = async (e) => {
     s.textContent = files.length > 1 ? `Sending photo ${i + 1} of ${files.length}…` : "Sending photo…";
     const path = await uploadPhoto("photos", cid, f, 1600);
     if (!path) continue;
-    // shortcut: if the insert below fails, the uploaded file stays in the bucket (it has no delete policy, so the app can't remove it); add a delete policy and sb.storage.remove here if storage grows.
     const { data, error } = await sb.from("messages").insert({ chat_id: cid, image_path: path, reply_to: reply }).select().single();
-    if (error) { alertBox(error); continue; }
+    if (error) { alertBox(error); await sb.storage.from("photos").remove([path]).catch(() => {}); continue; } // the message failed: don't leave its photo behind (you can delete your own uploads)
     reply = null; // only the first photo replies
     addMsg(data);
   }
